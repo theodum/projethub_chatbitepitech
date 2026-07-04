@@ -2,7 +2,9 @@
 Routes API pour le chatbot
 """
 from fastapi import APIRouter, HTTPException, File, UploadFile
+from fastapi.responses import StreamingResponse
 import sys
+import json
 from pathlib import Path
 
 # Ajouter le répertoire parent au path pour les imports
@@ -10,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from models.chat_models import ChatRequest, ChatResponse
 from services.googleai_service import GoogleAIService
 from services.embeddings_service import EmbeddingService
+from services.moderation_service import is_bypass_attempt
 from supabase import create_client, Client
 from config import SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 
@@ -35,7 +38,7 @@ def get_supabase_client() -> Client:
 def retrieve_context(
     question: str,
     match_count: int = 5,
-    match_threshold: float = 0.5,
+    match_threshold: float = 0.65,
 ) -> tuple:
     """
     Recherche sémantique (RAG) :
@@ -54,7 +57,9 @@ def retrieve_context(
             "match_document_chunks",
             {
                 "query_embedding": query_embedding,
-                "match_threshold": match_threshold,
+                # On récupère le top-k sans filtrer (seuil 0) pour connaître la vraie
+                # similarité max ; le filtrage au seuil réel se fait ensuite en Python.
+                "match_threshold": 0.0,
                 "match_count": match_count,
             },
         ).execute()
@@ -66,17 +71,20 @@ def retrieve_context(
     if not rows:
         return "", [], 0.0
 
+    # Vraie meilleure similarité (même sous le seuil) — utile pour prioriser les trous
+    max_similarity = max((row.get("similarity") or 0.0) for row in rows)
+
+    # On n'injecte que les passages réellement pertinents (au-dessus du seuil)
     injected_content = ""
     sources = []
-    max_similarity = 0.0
     for row in rows:
+        if (row.get("similarity") or 0.0) < match_threshold:
+            continue
         titre = row.get("titre", "")
         contenu = row.get("contenu", "")
         injected_content += f"## {titre}\n{contenu}\n\n"
         if titre and titre not in sources:
             sources.append(titre)
-        similarity = row.get("similarity") or 0.0
-        max_similarity = max(max_similarity, similarity)
 
     return injected_content, sources, max_similarity
 
@@ -117,6 +125,7 @@ async def chat(request: ChatRequest):
             sources=sources,
             max_similarity=max_similarity,
             context_found=bool(injected_content.strip()),
+            flagged=is_bypass_attempt(request.message),
         )
 
     except ValueError as e:
@@ -135,6 +144,51 @@ async def chat(request: ChatRequest):
             status_code=500,
             detail=f"Erreur lors de la génération de la réponse: {str(e)}"
         )
+
+
+@router.post("/stream")
+async def chat_stream(request: ChatRequest):
+    """
+    Version streaming de /chat : renvoie la réponse en flux (ndjson).
+    Ligne 1 = métadonnées (sources, similarité, contexte, flag modération),
+    puis des lignes 'delta' avec le texte au fur et à mesure, puis 'done'.
+    """
+    injected_content, sources, max_similarity = retrieve_context(request.message)
+
+    system_prompt = request.system_prompt or ""
+    if injected_content.strip():
+        system_prompt += (
+            "\n\n### Contexte pertinent (base de connaissances) :\n"
+            f"{injected_content}"
+        )
+
+    conversation_history = None
+    if request.conversation_history:
+        conversation_history = [
+            {"role": msg.role, "content": msg.content}
+            for msg in request.conversation_history
+        ]
+
+    meta = {
+        "type": "meta",
+        "sources": sources,
+        "max_similarity": max_similarity,
+        "context_found": bool(injected_content.strip()),
+        "flagged": is_bypass_attempt(request.message),
+    }
+
+    async def event_stream():
+        yield json.dumps(meta) + "\n"
+        try:
+            async for delta in ai_service.generate_response_stream(
+                request.message, conversation_history, system_prompt
+            ):
+                yield json.dumps({"type": "delta", "text": delta}) + "\n"
+            yield json.dumps({"type": "done"}) + "\n"
+        except Exception as e:
+            yield json.dumps({"type": "error", "detail": str(e)}) + "\n"
+
+    return StreamingResponse(event_stream(), media_type="application/x-ndjson")
 
 
 @router.post("/upload")

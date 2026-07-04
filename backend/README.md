@@ -1,98 +1,65 @@
-# Backend Python - Epibot API
+# Backend — Epibot API (FastAPI)
 
-Backend structure en Python avec FastAPI pour gerer les appels API Google AI Studio (Gemini)
+Backend Python/FastAPI qui gère la partie **IA** de l'application : recherche
+sémantique (RAG), génération de réponses (Google Gemini), ingestion des
+documents et endpoints d'administration.
 
-## Structure du projet
+> Installation, configuration `.env` et lancement : voir **[../DEMARRAGE.md](../DEMARRAGE.md)**.
+> Architecture globale et référence API complète : voir **[../ARCHITECTURE.md](../ARCHITECTURE.md)**.
+
+## Structure
 
 ```
 backend/
-├── main.py                 # Point d'entree de l'application
-├── config.py              # Configuration et variables d'environnement
-├── requirements.txt       # Dependances Python
-├── .env.example          # Exemple de fichier de configuration
+├── main.py                       # Point d'entrée FastAPI (+ CORS, routers)
+├── start.py                      # Script de démarrage (uvicorn)
+├── config.py                     # Variables d'environnement
+├── ingest.py                     # Ingestion en lot (CLI) de backend/documents/
+├── requirements.txt
 │
-├── api/                  # Routes API
-│   ├── __init__.py
-│   └── routes.py         # Definition des endpoints
+├── api/
+│   ├── routes.py                 # /api/chat  (chat, stream, upload, health) + RAG
+│   └── admin.py                  # /api/admin (gestion des documents, protégé JWT admin)
 │
-├── services/             # Services metier
-│   ├── __init__.py
-│   └── googleai_service.py  # Service pour Google AI Studio
+├── services/
+│   ├── googleai_service.py       # Génération Gemini (chat + streaming)
+│   ├── embeddings_service.py     # Embeddings Gemini (gemini-embedding-001, 768d)
+│   ├── ingestion_service.py      # Extraction + découpage + encodage + stockage
+│   └── moderation_service.py     # Détection heuristique de contournement
 │
-└── models/               # Modeles de donnees (Pydantic)
-    ├── __init__.py
-    └── chat_models.py    # Modeles pour les requetes/reponses
+├── models/
+│   └── chat_models.py            # Schémas Pydantic (requêtes / réponses)
+│
+├── documents/                    # Fichiers à ingérer (PDF / txt / md)
+└── tests/
+    └── test_ingestion.py         # Tests pytest (fonctions pures)
 ```
 
-## Installation
+## Variables d'environnement (`backend/.env`)
 
-1. **Creer un environnement virtuel** :
+```env
+GEMINI_API_KEY=...                # clé Google AI Studio (chat + embeddings)
+SUPABASE_URL=https://<projet>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=...     # clé service_role (secrète, bypasse le RLS)
+```
+
+## Endpoints
+
+| Méthode | Endpoint | Auth | Description |
+|---------|----------|------|-------------|
+| `POST` | `/api/chat/chat` | — | Réponse complète (non-streamée) |
+| `POST` | `/api/chat/stream` | — | Réponse streamée (ndjson) |
+| `POST` | `/api/chat/upload` | — | Upload d'un fichier texte brut |
+| `GET`  | `/api/chat/health` | — | Santé de l'API |
+| `GET`  | `/api/admin/documents` | admin | Liste des documents |
+| `POST` | `/api/admin/documents` | admin | Upload + ingestion |
+| `DELETE` | `/api/admin/documents/{id}` | admin | Suppression (cascade) |
+
+Documentation interactive : http://localhost:3001/docs
+
+## Ingestion & tests
+
 ```bash
-cd backend
-python3 -m venv venv
-source venv/bin/activate
+python ingest.py     # ingère les fichiers de backend/documents/
+pytest               # lance les tests unitaires
 ```
-
-2. **Installer les dependances** :
-```bash
-pip install -r requirements.txt
-```
-
-3. **Configurer l'environnement** :
-```bash
-cp .env.example .env
-# Editez .env et ajoutez votre cle API Google AI Studio
-# GOOGLE_API_KEY=AIzaSy...
-```
-
-## Demarrage
-
-### Option 1 : Avec npm (depuis la racine)
-```bash
-npm run dev:api
-```
-
-### Option 2 : Directement avec Python
-```bash
-cd backend
-python3 main.py
-```
-
-### Option 3 : Avec uvicorn directement
-```bash
-cd backend
-uvicorn main:app --reload --port 3001
-```
-
-## API Endpoints
-
-- `POST /api/chat/chat` - Generer une reponse a partir d'un message
-- `GET /api/chat/health` - Verifier l'etat de l'API
-
-## Architecture
-
-### Separation des responsabilites
-
-- **`config.py`** : Configuration centralisee
-- **`services/`** : Logique metier (appels API externes)
-- **`api/routes.py`** : Routes HTTP (controleurs)
-- **`models/`** : Modeles de donnees (validation avec Pydantic)
-
-### Avantages de cette structure
-
-- **Maintenabilite** : Code organise et facile a comprendre
-- **Testabilite** : Services isoles, faciles a tester
-- **Extensibilite** : Facile d'ajouter de nouveaux services
-- **Type safety** : Validation automatique avec Pydantic
-
-## Ajouter un nouveau service
-
-1. Creer un fichier dans `services/` (ex: `supabase_service.py`)
-2. Implementer la logique metier
-3. L'utiliser dans `api/routes.py` si necessaire
-
-## Documentation API
-
-Une fois le serveur demarre, accedez a :
-- **Swagger UI** : http://localhost:3001/docs
-- **ReDoc** : http://localhost:3001/redoc

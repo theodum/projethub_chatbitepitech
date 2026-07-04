@@ -11,6 +11,7 @@ export interface Message {
   rag_similarity?: number | null;       // similarité du meilleur passage RAG
   rag_sources?: string[] | null;        // titres des documents utilisés
   rag_context_found?: boolean | null;   // un contexte RAG a-t-il été trouvé ?
+  flagged?: boolean | null;             // tentative de contournement du garde-fou (modération)
 }
 
 /**

@@ -18,7 +18,10 @@ import {
   FileText,
   Upload,
   Trash2,
-  RefreshCw
+  RefreshCw,
+  Gauge,
+  ThumbsDown,
+  HelpCircle
 } from 'lucide-react';
 import { getAllMessages } from '../services/messagesService';
 import { getAllUsers } from '../services/usersService';
@@ -29,7 +32,7 @@ import { listDocuments, uploadDocument, deleteDocument } from '../services/docum
 import type { DocumentItem } from '../services/documentsService';
 import type { AdminAlert, Message, User } from '../types';
 
-type ViewState = 'dashboard' | 'students' | 'analytics' | 'documents';
+type ViewState = 'dashboard' | 'students' | 'analytics' | 'documents' | 'quality' | 'moderation';
 
 const darkMode = {
   // Backgrounds
@@ -199,40 +202,26 @@ export function AdminPanel() {
     }
   };
 
-  // Calculer les tendances depuis les messages
+  // Documents les plus consultés : sources RAG réellement utilisées dans les réponses
   const calculateTrends = (): TrendData[] => {
-    const topicCounts: { [key: string]: number } = {};
-    
+    const docCounts: { [key: string]: number } = {};
+
     messages.forEach(msg => {
-      if (msg.content) {
-        const content = msg.content.toLowerCase();
-        // Détecter les sujets courants
-        if (content.includes('stage') || content.includes('convention')) {
-          topicCounts['Convention de stage'] = (topicCounts['Convention de stage'] || 0) + 1;
-        }
-        if (content.includes('wifi') || content.includes('réseau') || content.includes('connexion')) {
-          topicCounts['Problème Wi-Fi'] = (topicCounts['Problème Wi-Fi'] || 0) + 1;
-        }
-        if (content.includes('cafétéria') || content.includes('cantine') || content.includes('horaires')) {
-          topicCounts['Horaires Cafétéria'] = (topicCounts['Horaires Cafétéria'] || 0) + 1;
-        }
-        if (content.includes('inscription') || content.includes('pédagogique')) {
-          topicCounts['Inscription Pédagogique'] = (topicCounts['Inscription Pédagogique'] || 0) + 1;
-        }
-        if (content.includes('badge') || content.includes('carte')) {
-          topicCounts['Perte Badge Étudiant'] = (topicCounts['Perte Badge Étudiant'] || 0) + 1;
-        }
+      if (!msg.user_id && Array.isArray(msg.rag_sources)) {
+        msg.rag_sources.forEach(titre => {
+          docCounts[titre] = (docCounts[titre] || 0) + 1;
+        });
       }
     });
 
-    return Object.entries(topicCounts)
+    return Object.entries(docCounts)
       .map(([topic, count]) => ({
         topic,
         count,
         trend: 'stable' as const
       }))
       .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
+      .slice(0, 6);
   };
 
   const DashboardHome = () => {
@@ -325,6 +314,24 @@ export function AdminPanel() {
 
   const AnalyticsView = () => {
     const trends = calculateTrends();
+
+    // Activité : questions (messages utilisateur) par jour sur les 7 derniers jours
+    const dayMs = 24 * 60 * 60 * 1000;
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const startWindow = startOfToday.getTime() - 6 * dayMs;
+    const perDay = [0, 0, 0, 0, 0, 0, 0];
+    messages.forEach(m => {
+      if (!m.user_id || !m.created_at) return;
+      const idx = Math.floor((new Date(m.created_at).getTime() - startWindow) / dayMs);
+      if (idx >= 0 && idx < 7) perDay[idx]++;
+    });
+    const activity = perDay.map((count, i) => ({
+      count,
+      label: new Date(startWindow + i * dayMs).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' }),
+    }));
+    const maxActivity = Math.max(1, ...perDay);
+
     const promoStats = users.reduce((acc, user) => {
       const label = user.promo ? `Promo ${user.promo}` : 'Autre';
       acc[label] = (acc[label] || 0) + user.messageCount;
@@ -353,7 +360,7 @@ export function AdminPanel() {
             <div className={`${darkMode.card} rounded-2xl p-6 shadow-sm`}>
               <h3 className={`font-bold ${darkMode.text.secondary} mb-6 flex items-center gap-2 ${darkMode.transition}`}>
                 <TrendingUp size={20} className="text-emerald-500 dark:text-emerald-400" />
-                Sujets les plus frequents
+                Documents les plus consultés
               </h3>
               <div className="space-y-4">
                 {trends.length > 0 ? trends.map((item, idx) => (
@@ -362,7 +369,7 @@ export function AdminPanel() {
                     <div className="flex-1">
                       <div className="flex justify-between mb-1">
                         <span className={`font-medium ${darkMode.text.secondary} ${darkMode.transition}`}>{item.topic}</span>
-                        <span className={`text-xs font-bold ${darkMode.text.muted} ${darkMode.transition}`}>{item.count} msg</span>
+                        <span className={`text-xs font-bold ${darkMode.text.muted} ${darkMode.transition}`}>{item.count}×</span>
                       </div>
                       <div className={`w-full ${darkMode.bg.input} rounded-full h-2 overflow-hidden ${darkMode.transition}`}>
                         <div
@@ -416,6 +423,227 @@ export function AdminPanel() {
                   </p>
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Activité des 7 derniers jours */}
+          <div className={`${darkMode.card} rounded-2xl p-6 shadow-sm mt-8`}>
+            <h3 className={`font-bold ${darkMode.text.secondary} mb-6 flex items-center gap-2 ${darkMode.transition}`}>
+              <Activity size={20} className="text-blue-500 dark:text-blue-400" />
+              Activité (7 derniers jours)
+            </h3>
+            <div className="flex items-end justify-between gap-2">
+              {activity.map((day, idx) => (
+                <div key={idx} className="flex-1 flex flex-col items-center gap-1">
+                  <span className={`text-xs font-bold ${darkMode.text.secondary} ${darkMode.transition}`}>{day.count}</span>
+                  <div className="w-full flex items-end justify-center" style={{ height: '120px' }}>
+                    <div
+                      className="w-full max-w-[40px] bg-indigo-500 dark:bg-indigo-400 rounded-t-md"
+                      style={{ height: `${Math.max(2, (day.count / maxActivity) * 100)}%` }}
+                    ></div>
+                  </div>
+                  <span className={`text-[10px] ${darkMode.text.muted} ${darkMode.transition}`}>{day.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const QualityView = () => {
+    // Rattacher chaque réponse du bot à la question qui la précède (dans la conversation)
+    const sorted = [...messages].sort((a, b) => {
+      const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return ta - tb;
+    });
+    const lastUserByConv: Record<string, string> = {};
+    const bots: { msg: MessageWithUser; question: string }[] = [];
+    sorted.forEach((m) => {
+      const conv = m.conversation_id || '';
+      if (m.user_id) {
+        lastUserByConv[conv] = m.content;
+      } else {
+        bots.push({ msg: m, question: lastUserByConv[conv] || '—' });
+      }
+    });
+
+    const rated = bots.filter((b) => b.msg.feedback === 'up' || b.msg.feedback === 'down');
+    const up = bots.filter((b) => b.msg.feedback === 'up').length;
+    const satisfaction = rated.length ? Math.round((up / rated.length) * 100) : null;
+    const negatives = bots.filter((b) => b.msg.feedback === 'down');
+    const noContext = bots
+      .filter((b) => b.msg.rag_context_found === false)
+      .sort((a, b) => (b.msg.rag_similarity || 0) - (a.msg.rag_similarity || 0));
+
+    const Tile = ({ icon, color, label, value, hint }: { icon: React.ReactNode; color: string; label: string; value: string; hint: string }) => (
+      <div className={`${darkMode.card} p-5 rounded-xl shadow-sm`}>
+        <div className="flex items-center gap-3">
+          <div className={`p-3 rounded-full ${color}`}>{icon}</div>
+          <div>
+            <p className={`text-xs font-bold uppercase ${darkMode.text.muted} ${darkMode.transition}`}>{label}</p>
+            <p className={`text-xl font-bold ${darkMode.text.primary} ${darkMode.transition}`}>{value}</p>
+          </div>
+        </div>
+        <p className={`text-xs mt-2 ${darkMode.text.muted} ${darkMode.transition}`}>{hint}</p>
+      </div>
+    );
+
+    return (
+      <div className={`flex-1 overflow-y-auto ${darkMode.bg.secondary} p-8 ${darkMode.transition}`}>
+        <div className="max-w-5xl mx-auto">
+          <div className="mb-8">
+            <h1 className={`text-2xl font-bold ${darkMode.text.primary} ${darkMode.transition}`}>Qualité & feedback</h1>
+            <p className={`${darkMode.text.muted} ${darkMode.transition}`}>Ce que le chatbot réussit, et ce qu'il faut améliorer.</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+            <Tile
+              icon={<Gauge size={20} />}
+              color="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400"
+              label="Satisfaction"
+              value={satisfaction === null ? '—' : `${satisfaction}%`}
+              hint={`${rated.length} réponse(s) notée(s)`}
+            />
+            <Tile
+              icon={<ThumbsDown size={20} />}
+              color="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400"
+              label="Réponses 👎"
+              value={`${negatives.length}`}
+              hint="à relire"
+            />
+            <Tile
+              icon={<HelpCircle size={20} />}
+              color="bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400"
+              label="Sans contexte"
+              value={`${noContext.length}`}
+              hint="trous de connaissance"
+            />
+          </div>
+
+          <div className={`${darkMode.card} rounded-2xl shadow-sm mb-8`}>
+            <div className={`p-4 border-b ${darkMode.border.light} font-semibold ${darkMode.text.secondary} flex items-center gap-2 ${darkMode.transition}`}>
+              <ThumbsDown size={16} className="text-red-500" /> Réponses mal notées
+            </div>
+            <div className="p-4 space-y-3">
+              {negatives.length === 0 ? (
+                <p className={`text-sm text-center py-4 ${darkMode.text.muted} ${darkMode.transition}`}>Aucune réponse notée 👎 pour l'instant.</p>
+              ) : negatives.map((b) => (
+                <div key={b.msg.id} className={`p-3 rounded-lg ${darkMode.bg.input} ${darkMode.transition}`}>
+                  <p className={`text-sm font-medium ${darkMode.text.secondary} ${darkMode.transition}`}>❓ {b.question}</p>
+                  <p className={`text-sm mt-1 ${darkMode.text.muted} ${darkMode.transition}`}>💬 {b.msg.content.slice(0, 160)}{b.msg.content.length > 160 ? '…' : ''}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className={`${darkMode.card} rounded-2xl shadow-sm`}>
+            <div className={`p-4 border-b ${darkMode.border.light} font-semibold ${darkMode.text.secondary} flex items-center gap-2 ${darkMode.transition}`}>
+              <HelpCircle size={16} className="text-orange-500" /> Questions sans contexte — docs à ajouter ?
+            </div>
+            <div className="p-4 space-y-2">
+              {noContext.length === 0 ? (
+                <p className={`text-sm text-center py-4 ${darkMode.text.muted} ${darkMode.transition}`}>Aucune question restée sans contexte. 🎉</p>
+              ) : noContext.map((b) => (
+                <div key={b.msg.id} className={`flex items-center justify-between gap-3 p-3 rounded-lg ${darkMode.bg.input} ${darkMode.transition}`}>
+                  <span className={`text-sm ${darkMode.text.secondary} truncate ${darkMode.transition}`}>❓ {b.question}</span>
+                  <span className={`text-xs font-mono px-2 py-1 rounded ${darkMode.bg.card} ${darkMode.text.muted} shrink-0 ${darkMode.transition}`}>
+                    max {b.msg.rag_similarity != null ? b.msg.rag_similarity.toFixed(2) : '—'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const ModerationView = () => {
+    const userById: Record<string, UserWithStats> = {};
+    users.forEach((u) => { if (u.id) userById[u.id] = u; });
+
+    const attempts = messages
+      .filter((m) => !!m.user_id && m.flagged === true)
+      .map((m) => ({ msg: m, user: m.user_id ? userById[m.user_id] : undefined }))
+      .sort((a, b) => {
+        const ta = a.msg.created_at ? new Date(a.msg.created_at).getTime() : 0;
+        const tb = b.msg.created_at ? new Date(b.msg.created_at).getTime() : 0;
+        return tb - ta;
+      });
+
+    const watchlist = users
+      .filter((u) => u.usageScore > 60)
+      .sort((a, b) => b.usageScore - a.usageScore);
+
+    return (
+      <div className={`flex-1 overflow-y-auto ${darkMode.bg.secondary} p-8 ${darkMode.transition}`}>
+        <div className="max-w-5xl mx-auto">
+          <div className="mb-8">
+            <h1 className={`text-2xl font-bold ${darkMode.text.primary} ${darkMode.transition}`}>Modération</h1>
+            <p className={`${darkMode.text.muted} ${darkMode.transition}`}>Contournements du garde-fou pédagogique et surveillance de l'usage.</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+            <div className={`${darkMode.card} p-5 rounded-xl shadow-sm flex items-center gap-4`}>
+              <div className="p-3 rounded-full bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400"><ShieldAlert size={20} /></div>
+              <div>
+                <p className={`text-xs font-bold uppercase ${darkMode.text.muted} ${darkMode.transition}`}>Tentatives de contournement</p>
+                <p className={`text-xl font-bold ${darkMode.text.primary} ${darkMode.transition}`}>{attempts.length}</p>
+              </div>
+            </div>
+            <div className={`${darkMode.card} p-5 rounded-xl shadow-sm flex items-center gap-4`}>
+              <div className="p-3 rounded-full bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400"><AlertTriangle size={20} /></div>
+              <div>
+                <p className={`text-xs font-bold uppercase ${darkMode.text.muted} ${darkMode.transition}`}>Utilisateurs à surveiller</p>
+                <p className={`text-xl font-bold ${darkMode.text.primary} ${darkMode.transition}`}>{watchlist.length}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className={`${darkMode.card} rounded-2xl shadow-sm mb-8`}>
+            <div className={`p-4 border-b ${darkMode.border.light} font-semibold ${darkMode.text.secondary} flex items-center gap-2 ${darkMode.transition}`}>
+              <ShieldAlert size={16} className="text-red-500" /> Demandes suspectes (code / solution direct)
+            </div>
+            <div className="p-4 space-y-3">
+              {attempts.length === 0 ? (
+                <p className={`text-sm text-center py-4 ${darkMode.text.muted} ${darkMode.transition}`}>Aucune tentative détectée. 👍</p>
+              ) : attempts.map((a) => (
+                <div key={a.msg.id} className={`p-3 rounded-lg ${darkMode.bg.input} ${darkMode.transition}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={`text-sm font-medium ${darkMode.text.secondary} ${darkMode.transition}`}>{a.user?.name || a.user?.email || 'Utilisateur inconnu'}</span>
+                    <span className={`text-[10px] ${darkMode.text.muted}`}>{a.msg.created_at ? new Date(a.msg.created_at).toLocaleString('fr-FR') : ''}</span>
+                  </div>
+                  <p className={`text-sm mt-1 ${darkMode.text.muted} ${darkMode.transition}`}>« {a.msg.content} »</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className={`${darkMode.card} rounded-2xl shadow-sm`}>
+            <div className={`p-4 border-b ${darkMode.border.light} font-semibold ${darkMode.text.secondary} flex items-center gap-2 ${darkMode.transition}`}>
+              <AlertTriangle size={16} className="text-orange-500" /> Usage élevé à surveiller
+            </div>
+            <div className="p-4 space-y-2">
+              {watchlist.length === 0 ? (
+                <p className={`text-sm text-center py-4 ${darkMode.text.muted} ${darkMode.transition}`}>Aucun usage anormal. 👍</p>
+              ) : watchlist.map((u) => {
+                const status = getUsageStatus(u.usageScore);
+                return (
+                  <div key={u.id} className={`flex items-center justify-between gap-3 p-3 rounded-lg ${darkMode.bg.input} ${darkMode.transition}`}>
+                    <div className="min-w-0">
+                      <p className={`text-sm font-medium truncate ${darkMode.text.secondary} ${darkMode.transition}`}>{u.name || u.email}</p>
+                      <p className={`text-xs ${darkMode.text.muted}`}>{u.promo ? `Promo ${u.promo}` : 'Promo inconnue'} · {u.dailyMessageCount} msg aujourd'hui</p>
+                    </div>
+                    <div className={`flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-bold ${status.color} ${status.darkColor} shrink-0`}>
+                      {status.icon}
+                      {status.label} ({u.usageScore}%)
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -613,10 +841,22 @@ export function AdminPanel() {
               label="Stats"
             />
             <NavButton
+              active={currentView === 'quality'}
+              onClick={() => setCurrentView('quality')}
+              icon={<Gauge size={20} />}
+              label="Qualité"
+            />
+            <NavButton
               active={currentView === 'documents'}
               onClick={() => setCurrentView('documents')}
               icon={<FileText size={20} />}
               label="Docs"
+            />
+            <NavButton
+              active={currentView === 'moderation'}
+              onClick={() => setCurrentView('moderation')}
+              icon={<ShieldAlert size={20} />}
+              label="Modér."
             />
           </div>
         </div>
@@ -645,7 +885,9 @@ export function AdminPanel() {
         {currentView === 'dashboard' && <DashboardHome />}
         {currentView === 'students' && <StudentsView />}
         {currentView === 'analytics' && <AnalyticsView />}
+        {currentView === 'quality' && <QualityView />}
         {currentView === 'documents' && <DocumentsView />}
+        {currentView === 'moderation' && <ModerationView />}
       </div>
     </div>
   );

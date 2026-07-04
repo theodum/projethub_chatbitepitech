@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { MessageCircle, HelpCircle, Send, ArrowLeft, ChevronRight, Sparkles, X, Sun, Moon, LogOut, Menu, Plus, Trash2 } from 'lucide-react';
-import { createMessage, updateMessageFeedback } from '../services/messagesService';
+import { createMessage, updateMessage, updateMessageFeedback } from '../services/messagesService';
 import { useTheme } from '../hooks/useTheme';
-import { sendMessage } from '../services/aiService';
+import { sendMessageStream } from '../services/aiService';
 import { useAuth } from '../contexts/AuthContext';
 import { createConversation, deleteConversation, getMessagesByConversation, getUserConversations } from '../services/conversationsService';
 import ReactMarkdown from "react-markdown";
@@ -17,6 +17,7 @@ interface Message {
   sender: 'user' | 'bot';
   timestamp: Date;
   dbId?: number; // id de la ligne en base (pour enregistrer le feedback)
+  sources?: string[]; // documents utilisés par le RAG pour cette réponse
 }
 
 interface ConversationItem {
@@ -269,6 +270,7 @@ export function ChatInterface() {
         text: msg.content,
         sender: msg.user_id ? 'user' : 'bot', // Si user_id existe, c'est un message utilisateur, sinon c'est le bot
         timestamp: msg.created_at ? new Date(msg.created_at) : new Date(),
+        sources: msg.rag_sources || undefined,
       }));
       
       setMessages([
@@ -303,17 +305,19 @@ export function ChatInterface() {
     setIsTyping(true);
 
     const currentUserId = user?.id || null;
+    let savedUserMessageId: number | null = null;
     // Sauvegarder le message utilisateur dans Supabase (optionnel, ne bloque pas le chat)
     try {
       let conversationId = activeConversationId;
       if (!conversationId) {
         conversationId = await createNewConversation(text.slice(0, 48));
       }
-      await createMessage({
+      const savedUser = await createMessage({
         content: text,
         user_id: currentUserId, // Utiliser l'ID de l'utilisateur connecté
         conversation_id: conversationId,
       });
+      savedUserMessageId = savedUser.id ?? null;
     } catch (error) {
       // Ne pas bloquer le chat si la sauvegarde échoue
       console.warn('Erreur lors de la sauvegarde du message (non bloquant):', error);
@@ -328,20 +332,47 @@ export function ChatInterface() {
           content: msg.text,
         }));
 
-      // Appeler l'API (réponse + métadonnées RAG)
-      const result = await sendMessage(text, conversationHistory);
-      const botText = result.response;
+      // Streamer la réponse mot à mot ; la bulle du bot est créée au 1er token
+      const botMsgId = Date.now() + 1;
+      let created = false;
+      const result = await sendMessageStream(text, conversationHistory, (delta) => {
+        if (!created) {
+          created = true;
+          setIsTyping(false);
+          setMessages(prev => [...prev, {
+            id: botMsgId,
+            text: delta,
+            sender: 'bot',
+            timestamp: new Date(),
+          }]);
+        } else {
+          setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, text: m.text + delta } : m));
+        }
+      });
 
-      const newBotMsg: Message = {
-        id: Date.now() + 1,
-        text: botText,
-        sender: 'bot',
-        timestamp: new Date()
-      };
+      // Réponse sans aucun token : créer quand même la bulle
+      if (!created) {
+        setMessages(prev => [...prev, {
+          id: botMsgId,
+          text: result.response || '…',
+          sender: 'bot',
+          timestamp: new Date(),
+        }]);
+      }
 
-      setMessages(prev => [...prev, newBotMsg]);
-      setLastBotMessageId(newBotMsg.id);
+      // Finaliser : sources + suivi du feedback
+      setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, sources: result.sources } : m));
+      setLastBotMessageId(botMsgId);
       setLastFeedback(null);
+
+      // Modération : marquer la question si le backend a détecté un contournement
+      if (result.flagged && savedUserMessageId) {
+        try {
+          await updateMessage(savedUserMessageId, { flagged: true });
+        } catch (err) {
+          console.warn('Erreur maj flag modération (non bloquant):', err);
+        }
+      }
 
       // Sauvegarder la réponse du bot + métadonnées RAG (optionnel, ne bloque pas le chat)
       try {
@@ -350,7 +381,7 @@ export function ChatInterface() {
           conversationId = await createNewConversation(text.slice(0, 48));
         }
         const savedBot = await createMessage({
-          content: botText,
+          content: result.response,
           user_id: null, // Message du bot
           conversation_id: conversationId || null,
           rag_similarity: result.maxSimilarity,
@@ -358,7 +389,7 @@ export function ChatInterface() {
           rag_context_found: result.contextFound,
         });
         // Mémoriser l'id en base pour pouvoir enregistrer le feedback ensuite
-        setMessages(prev => prev.map(m => m.id === newBotMsg.id ? { ...m, dbId: savedBot.id } : m));
+        setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, dbId: savedBot.id } : m));
       } catch (error) {
         // Ne pas bloquer le chat si la sauvegarde échoue
         console.warn('Erreur lors de la sauvegarde de la réponse (non bloquant):', error);
@@ -678,6 +709,18 @@ export function ChatInterface() {
                           {msg.text}
                         </ReactMarkdown>
                       </div>
+                      {msg.sender === 'bot' && msg.sources && msg.sources.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {msg.sources.map((source) => (
+                            <span
+                              key={source}
+                              className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800"
+                            >
+                              📎 {source}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                       <span className={`text-[10px] block mt-2 ${msg.sender === 'user' ? 'text-indigo-200' : 'text-slate-400'}`}>
                         {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>

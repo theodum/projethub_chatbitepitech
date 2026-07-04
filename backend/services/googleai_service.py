@@ -112,3 +112,42 @@ class GoogleAIService:
                 raise ValueError(f"Modele {self.model_name} non trouve")
             else:
                 raise ValueError(f"Erreur API Google: {error_msg}")
+
+    async def generate_response_stream(
+        self,
+        message: str,
+        conversation_history: Optional[List[Dict[str, str]]] = None,
+        system_prompt: Optional[str] = None,
+    ):
+        """
+        Génère la réponse en streaming : yield des morceaux de texte au fur et à mesure.
+        """
+        if not self.api_key or not self.client:
+            raise ValueError(
+                "Cle API Google non configuree. "
+                "Ajoutez GEMINI_API_KEY ou GOOGLE_API_KEY dans backend/.env"
+            )
+        if not message or not message.strip():
+            raise ValueError("Le message ne peut pas etre vide")
+
+        config = None
+        if system_prompt:
+            config = genai.types.GenerateContentConfig(system_instruction=system_prompt)
+
+        try:
+            stream = await self.client.aio.models.generate_content_stream(
+                model=self.model_name,
+                contents=self._build_contents(message, conversation_history),
+                config=config,
+            )
+            async for chunk in stream:
+                if chunk.text:
+                    yield chunk.text
+        except Exception as e:
+            error_msg = str(e)
+            if "API_KEY" in error_msg or "authentication" in error_msg.lower():
+                raise ValueError("Cle API Google invalide")
+            elif "quota" in error_msg.lower() or "rate limit" in error_msg.lower():
+                raise ValueError("Trop de requetes. Veuillez patienter avant de reessayer")
+            else:
+                raise ValueError(f"Erreur API Google: {error_msg}")
