@@ -18,6 +18,11 @@ class ChatRequest(BaseModel):
         default=None,
         description="L'historique de la conversation"
     )
+    user_promo: Optional[int] = Field(
+        default=None,
+        description="Année de sortie de l'étudiant (ex: 2029). Sert à filtrer "
+                    "les documents accessibles selon son année d'étude (tek1..tek5)."
+    )
     system_prompt: Optional[str] = Field(
         default="""Tu es Epibot 🤖, l'assistant pédagogique des étudiants d'Epitech.
 

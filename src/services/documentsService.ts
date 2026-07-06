@@ -6,6 +6,8 @@ export interface DocumentItem {
   source: string;
   created_at?: string;
   chunks: number;
+  study_year?: number | null;   // 1..5 (tek1..tek5) ; null = toutes les promos
+  start_date?: string | null;   // YYYY-MM-DD ; null = pas de restriction de date
 }
 
 /**
@@ -36,6 +38,23 @@ export async function uploadDocument(file: File): Promise<DocumentItem> {
     method: 'POST',
     headers: await authHeader(), // pas de Content-Type : le navigateur gère le multipart
     body: form,
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return res.json();
+}
+
+/**
+ * Met à jour les restrictions d'accès d'un document (promo + date de démarrage).
+ * study_year : 1..5 ou null (toutes) · start_date : "YYYY-MM-DD" ou null.
+ */
+export async function updateDocumentAccess(
+  id: number,
+  access: { study_year: number | null; start_date: string | null }
+): Promise<DocumentItem> {
+  const res = await fetch(`/api/admin/documents/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+    body: JSON.stringify(access),
   });
   if (!res.ok) throw new Error(await parseError(res));
   return res.json();

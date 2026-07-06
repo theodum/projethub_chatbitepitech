@@ -27,7 +27,7 @@ import { getAllUsers } from '../services/usersService';
 import { createUsageAlerts, getRecentAlerts } from '../services/adminAlertsService';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../hooks/useTheme';
-import { listDocuments, uploadDocument, deleteDocument } from '../services/documentsService';
+import { listDocuments, uploadDocument, deleteDocument, updateDocumentAccess } from '../services/documentsService';
 import type { DocumentItem } from '../services/documentsService';
 import { getPasteEvents } from '../services/extensionService';
 import type { PasteEvent } from '../services/extensionService';
@@ -1061,6 +1061,25 @@ const DocumentsView = () => {
     }
   };
 
+  // Met à jour promo/date d'un document et rafraîchit sa ligne localement.
+  const handleAccessChange = async (
+    doc: DocumentItem,
+    patch: Partial<Pick<DocumentItem, 'study_year' | 'start_date'>>
+  ) => {
+    const next = {
+      study_year: patch.study_year !== undefined ? patch.study_year : (doc.study_year ?? null),
+      start_date: patch.start_date !== undefined ? patch.start_date : (doc.start_date ?? null),
+    };
+    // Optimiste : maj immédiate de l'affichage
+    setDocs((prev) => prev.map((d) => (d.id === doc.id ? { ...d, ...next } : d)));
+    try {
+      await updateDocumentAccess(doc.id, next);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur lors de la mise à jour');
+      await load(); // resynchronise en cas d'échec
+    }
+  };
+
   const totalChunks = docs.reduce((sum, d) => sum + d.chunks, 0);
 
   return (
@@ -1102,10 +1121,11 @@ const DocumentsView = () => {
       )}
 
       <div className="border border-hairline rounded-none bg-surface overflow-hidden">
-        <div className="grid grid-cols-12 px-3.5 py-2.5 border-b border-hairline bg-surface-2 font-mono text-[10px] uppercase tracking-wider text-ink-3">
-          <div className="col-span-6">Document</div>
-          <div className="col-span-2 text-center">Passages</div>
-          <div className="col-span-3">Ajouté le</div>
+        <div className="grid grid-cols-12 gap-2 px-3.5 py-2.5 border-b border-hairline bg-surface-2 font-mono text-[10px] uppercase tracking-wider text-ink-3">
+          <div className="col-span-4">Document</div>
+          <div className="col-span-1 text-center">Passages</div>
+          <div className="col-span-3">Promo (accès)</div>
+          <div className="col-span-3">Démarrage</div>
           <div className="col-span-1"></div>
         </div>
 
@@ -1119,20 +1139,43 @@ const DocumentsView = () => {
           docs.map((doc) => (
             <div
               key={doc.id}
-              className="grid grid-cols-12 items-center px-3.5 py-2.5 border-b border-hairline last:border-b-0 hover:bg-surface-2 transition-colors text-[12.5px]"
+              className="grid grid-cols-12 gap-2 items-center px-3.5 py-2.5 border-b border-hairline last:border-b-0 hover:bg-surface-2 transition-colors text-[12.5px]"
             >
-              <div className="col-span-6 flex items-center gap-2.5 min-w-0">
-                <div className="p-1.5 rounded-none border border-hairline bg-accent-soft text-accent">
+              <div className="col-span-4 flex items-center gap-2.5 min-w-0">
+                <div className="p-1.5 rounded-none border border-hairline bg-accent-soft text-accent shrink-0">
                   <FileText size={15} />
                 </div>
                 <div className="min-w-0">
                   <div className="font-medium truncate text-ink">{doc.titre}</div>
-                  <div className="font-num text-[11px] truncate text-ink-3">{doc.source}</div>
+                  <div className="font-num text-[11px] truncate text-ink-3">
+                    {doc.created_at ? new Date(doc.created_at).toLocaleDateString('fr-FR') : '—'}
+                  </div>
                 </div>
               </div>
-              <div className="col-span-2 text-center font-num font-semibold text-ink-2">{doc.chunks}</div>
-              <div className="col-span-3 font-num text-[11.5px] text-ink-3">
-                {doc.created_at ? new Date(doc.created_at).toLocaleDateString('fr-FR') : '—'}
+              <div className="col-span-1 text-center font-num font-semibold text-ink-2">{doc.chunks}</div>
+              <div className="col-span-3">
+                <select
+                  value={doc.study_year ?? ''}
+                  onChange={(e) =>
+                    handleAccessChange(doc, { study_year: e.target.value ? Number(e.target.value) : null })
+                  }
+                  className="w-full bg-surface-2 border border-hairline rounded-none px-2 py-1.5 text-[12px] text-ink outline-none focus:border-accent font-num transition-colors"
+                >
+                  <option value="">Toutes les promos</option>
+                  {[1, 2, 3, 4, 5].map((y) => (
+                    <option key={y} value={y}>tek{y}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="col-span-3">
+                <input
+                  type="date"
+                  value={doc.start_date ?? ''}
+                  onChange={(e) =>
+                    handleAccessChange(doc, { start_date: e.target.value || null })
+                  }
+                  className="w-full bg-surface-2 border border-hairline rounded-none px-2 py-1.5 text-[12px] text-ink outline-none focus:border-accent font-num transition-colors"
+                />
               </div>
               <div className="col-span-1 flex justify-end">
                 <button
@@ -1149,7 +1192,9 @@ const DocumentsView = () => {
       </div>
 
       <p className="mt-3 text-[11px] text-ink-3">
-        Formats acceptés : PDF, .txt, .md. Un fichier de même nom remplace l'ancien.
+        Formats acceptés : PDF, .txt, .md. Un fichier de même nom remplace l'ancien.<br />
+        <span className="text-ink-2">Promo</span> : le document n'est visible que par les étudiants de cette année (tek1..tek5) ; « Toutes » = accessible à tous.
+        <span className="text-ink-2"> Démarrage</span> : avant cette date, l'IA ne répond pas sur ce sujet.
       </p>
     </div>
   );

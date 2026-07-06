@@ -64,14 +64,19 @@ export async function sendMessage(
 export async function sendMessageStream(
   userMessage: string,
   conversationHistory: ChatMessage[],
-  onDelta: (text: string) => void
+  onDelta: (text: string) => void,
+  userPromo?: number | null
 ): Promise<ChatResult> {
   let response: Response;
   try {
     response = await fetch('/api/chat/stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: userMessage, conversation_history: conversationHistory }),
+      body: JSON.stringify({
+        message: userMessage,
+        conversation_history: conversationHistory,
+        user_promo: userPromo ?? null,
+      }),
     });
   } catch (error) {
     throw toClientError(error);

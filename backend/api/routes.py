@@ -35,15 +35,36 @@ def get_supabase_client() -> Client:
     return supabase
 
 
+CURSUS_YEARS = 5  # durée du cursus Epitech (tek1..tek5)
+
+
+def promo_to_study_year(promo: int | None) -> int | None:
+    """
+    Convertit l'année de sortie (promo, ex: 2029) en année d'étude (1..5).
+    tek = 5 - (promo - année_courante). Ex: promo 2029 en 2026 -> tek2.
+    Renvoie None si la promo est absente ou aberrante (=> l'utilisateur ne voit
+    alors que les documents SANS restriction de promo).
+    """
+    if not promo:
+        return None
+    from datetime import date
+    year = 5 - (promo - date.today().year)
+    if year < 1 or year > CURSUS_YEARS:
+        return None
+    return year
+
+
 def retrieve_context(
     question: str,
     match_count: int = 5,
     match_threshold: float = 0.65,
+    user_promo: int | None = None,
 ) -> tuple:
     """
     Recherche sémantique (RAG) :
     1. Encode la question en vecteur (Gemini text-embedding-004)
-    2. Interroge la fonction Postgres match_document_chunks (pgvector)
+    2. Interroge match_document_chunks (pgvector) en filtrant les documents
+       selon l'année d'étude de l'utilisateur et la date de démarrage du sujet
     3. Renvoie le contenu à injecter + les titres sources
     """
     try:
@@ -51,6 +72,9 @@ def retrieve_context(
     except Exception as e:
         print(f"Erreur lors de l'embedding de la question: {str(e)}")
         return "", [], 0.0
+
+    from datetime import date
+    user_year = promo_to_study_year(user_promo)
 
     try:
         response = get_supabase_client().rpc(
@@ -61,6 +85,9 @@ def retrieve_context(
                 # similarité max ; le filtrage au seuil réel se fait ensuite en Python.
                 "match_threshold": 0.0,
                 "match_count": match_count,
+                # Contrôle d'accès : année d'étude + date courante.
+                "user_year": user_year,
+                "today": date.today().isoformat(),
             },
         ).execute()
     except Exception as e:
@@ -97,7 +124,7 @@ async def chat(request: ChatRequest):
     """
     try:
         # Récupérer le contexte pertinent par recherche sémantique
-        injected_content, sources, max_similarity = retrieve_context(request.message)
+        injected_content, sources, max_similarity = retrieve_context(request.message, user_promo=request.user_promo)
 
         # Injecter dans le system prompt
         system_prompt = request.system_prompt or ""

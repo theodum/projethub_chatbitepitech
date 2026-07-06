@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { createConversation, deleteConversation, getMessagesByConversation, getUserConversations, getConversationMembers } from '../services/conversationsService';
 import { acceptInvite } from '../services/invitesService';
 import { generateExtensionToken } from '../services/extensionService';
+import { getUserById } from '../services/usersService';
 import { useConversationRealtime } from '../hooks/useConversationRealtime';
 import { ShareConversationModal } from './ShareConversationModal';
 import { Logo } from './Logo';
@@ -185,6 +186,7 @@ export function ChatInterface() {
   const [lastBotMessageId, setLastBotMessageId] = useState<number | null>(null);
   const [lastFeedback, setLastFeedback] = useState<'yes' | 'no' | null>(null);
   const [profile, setProfile] = useState({ name: '', email: '' });
+  const [userPromo, setUserPromo] = useState<number | null>(null);
   const [avatarPreview, setAvatarPreview] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [sessionStart, setSessionStart] = useState(Date.now());
@@ -217,6 +219,13 @@ export function ChatInterface() {
       });
       setAvatarPreview(user.user_metadata?.avatar_url || '');
       setSessionStart(Date.now());
+      // Récupère la promo (année de sortie) depuis le profil — sert au filtrage
+      // des documents accessibles selon l'année d'étude de l'étudiant.
+      if (user.id) {
+        getUserById(user.id)
+          .then((u) => setUserPromo(u?.promo ?? null))
+          .catch(() => setUserPromo(null));
+      }
     }
   }, [user]);
 
@@ -441,7 +450,7 @@ export function ChatInterface() {
         } else {
           setMessages(prev => prev.map(m => m.id === botMsgId ? { ...m, text: m.text + delta } : m));
         }
-      });
+      }, userPromo);
 
       // Réponse sans aucun token : créer quand même la bulle
       if (!created) {

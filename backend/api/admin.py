@@ -5,6 +5,8 @@ Toutes les routes sont protégées : elles exigent un utilisateur authentifié
 avec le rôle 'admin' (vérification du JWT Supabase + du rôle en base).
 """
 from fastapi import APIRouter, HTTPException, UploadFile, File, Depends, Header
+from pydantic import BaseModel, Field
+from typing import Optional
 import sys
 from pathlib import Path
 
@@ -12,6 +14,18 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from supabase import create_client, Client
 from config import SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 from services.ingestion_service import ingest_bytes
+
+
+class DocumentAccessUpdate(BaseModel):
+    """Restrictions d'accès d'un document (promo + date de démarrage)."""
+    study_year: Optional[int] = Field(
+        default=None, ge=1, le=5,
+        description="Année d'étude 1..5 (tek1..tek5). null = accessible à toutes."
+    )
+    start_date: Optional[str] = Field(
+        default=None,
+        description="Date de démarrage (YYYY-MM-DD). null = pas de restriction de date."
+    )
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -60,7 +74,7 @@ def require_admin(authorization: str = Header(None)) -> str:
 async def list_documents(admin_id: str = Depends(require_admin)):
     """Liste les documents ingérés avec leur nombre de chunks."""
     client = get_supabase_client()
-    docs = client.table("documents").select("id, titre, source, created_at").order("titre").execute()
+    docs = client.table("documents").select("id, titre, source, created_at, study_year, start_date").order("titre").execute()
 
     result = []
     for doc in docs.data or []:
@@ -93,6 +107,28 @@ async def upload_document(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors de l'ingestion : {str(e)}")
+
+
+@router.patch("/documents/{document_id}")
+async def update_document_access(
+    document_id: int,
+    payload: DocumentAccessUpdate,
+    admin_id: str = Depends(require_admin),
+):
+    """Met à jour les restrictions d'accès d'un document (promo + date de démarrage)."""
+    client = get_supabase_client()
+    updated = (
+        client.table("documents")
+        .update({
+            "study_year": payload.study_year,
+            "start_date": payload.start_date,
+        })
+        .eq("id", document_id)
+        .execute()
+    )
+    if not updated.data:
+        raise HTTPException(status_code=404, detail="Document introuvable")
+    return updated.data[0]
 
 
 @router.delete("/documents/{document_id}")
