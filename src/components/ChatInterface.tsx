@@ -4,11 +4,11 @@ import { createMessage, updateMessage, updateMessageFeedback } from '../services
 import { useTheme } from '../hooks/useTheme';
 import { sendMessageStream } from '../services/aiService';
 import { useAuth } from '../contexts/AuthContext';
-import { createConversation, deleteConversation, getMessagesByConversation, getUserConversations } from '../services/conversationsService';
+import { createConversation, deleteConversation, getMessagesByConversation, getUserConversations, getConversationMembers } from '../services/conversationsService';
 import { acceptInvite } from '../services/invitesService';
 import { useConversationRealtime } from '../hooks/useConversationRealtime';
 import { ShareConversationModal } from './ShareConversationModal';
-import type { Message as DBMessage } from '../types';
+import type { Message as DBMessage, ConversationMember } from '../types';
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -190,6 +190,7 @@ export function ChatInterface() {
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
+  const [activeMembers, setActiveMembers] = useState<ConversationMember[]>([]);
   const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -270,6 +271,11 @@ export function ChatInterface() {
   useEffect(() => {
     if (view === 'chat' && activeConversationId) {
       loadMessagesFromSupabase(activeConversationId);
+      getConversationMembers(activeConversationId)
+        .then(setActiveMembers)
+        .catch(() => setActiveMembers([]));
+    } else {
+      setActiveMembers([]);
     }
   }, [view, activeConversationId]);
 
@@ -387,18 +393,37 @@ export function ChatInterface() {
     }
 
     try {
-      // Construire l'historique de conversation (exclure le message de bienvenue)
+      // Nom de l'utilisateur courant (pour préfixer ses propres messages)
+      const myName = profile.name?.trim() || 'Moi';
+      // Une conversation est "partagée" dès qu'un autre membre y participe.
+      const isShared = activeMembers.length > 1;
+
+      // Construire l'historique. On garde les 2 rôles de l'API (user/assistant),
+      // mais on préfixe chaque message humain par le NOM de son auteur : sinon,
+      // en conversation partagée, tous les humains ont le rôle "user" et l'IA
+      // ne sait plus qui a dit quoi (elle confond les intervenants). Même en solo,
+      // ça aide l'IA à distinguer "ce que l'utilisateur a demandé" de ses propres
+      // questions de relance.
+      const label = (msg: Message) => {
+        if (msg.sender !== 'user') return '';
+        const who = msg.isMine ? myName : (msg.authorName || 'Un autre étudiant');
+        return isShared ? `${who} : ` : '';
+      };
+
       const conversationHistory = messages
         .filter(msg => msg.id !== 1) // Exclure le message de bienvenue
         .map(msg => ({
           role: msg.sender === 'user' ? 'user' as const : 'assistant' as const,
-          content: msg.text,
+          content: `${label(msg)}${msg.text}`,
         }));
+
+      // Le message courant est le mien -> même préfixe nominatif en conversation partagée.
+      const outgoing = isShared ? `${myName} : ${text}` : text;
 
       // Streamer la réponse mot à mot ; la bulle du bot est créée au 1er token
       const botMsgId = Date.now() + 1;
       let created = false;
-      const result = await sendMessageStream(text, conversationHistory, (delta) => {
+      const result = await sendMessageStream(outgoing, conversationHistory, (delta) => {
         if (!created) {
           created = true;
           setIsTyping(false);
@@ -529,22 +554,22 @@ export function ChatInterface() {
 
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-sans selection:bg-indigo-100 dark:selection:bg-indigo-900 transition-colors">
+    <div className="min-h-screen bg-ground text-ink font-sans selection:bg-accent-soft transition-colors">
       {/* Header Global */}
-      <header className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-50 transition-colors">
+      <header className="bg-surface/80 backdrop-blur-md border-b border-hairline sticky top-0 z-50 transition-colors">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => setView('home')}>
             <img src="/epitech-logo.png" alt="Epitech" className="h-8 w-auto" />
-            <div className="w-8 h-8 bg-indigo-600 dark:bg-indigo-500 rounded-lg flex items-center justify-center text-white">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white bg-gradient-to-br from-accent to-maize shadow-sm shadow-accent/30">
               <img src="/epis_mais.png" alt="Epis de maïs" className="w-5 h-5" />
             </div>
-            <span className="font-bold text-xl tracking-tight text-slate-800 dark:text-slate-100">Epibot</span>
+            <span className="font-display font-semibold text-xl text-ink">Epibot</span>
           </div>
           <div className="flex items-center gap-4 relative">
             {view !== 'home' && (
-              <button 
+              <button
                 onClick={() => setView('home')}
-                className="text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors flex items-center gap-1"
+                className="text-sm font-medium text-ink-2 hover:text-accent transition-colors flex items-center gap-1"
               >
                 <ArrowLeft size={16} />
                 Retour à l'accueil
@@ -552,22 +577,22 @@ export function ChatInterface() {
             )}
             <button
               onClick={() => setIsMenuOpen((prev) => !prev)}
-              className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+              className="p-2 rounded-lg bg-surface-2 hover:bg-hairline transition-colors"
               aria-label="Menu"
             >
-              <Menu size={20} className="text-slate-700 dark:text-slate-200" />
+              <Menu size={20} className="text-ink-2" />
             </button>
             {isMenuOpen && (
-              <div className="absolute right-0 top-12 w-40 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg p-2 z-50">
+              <div className="absolute right-0 top-12 w-40 bg-surface border border-hairline rounded-xl shadow-lg p-2 z-50">
                 <button
                   onClick={() => setView('home')}
-                  className="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                  className="w-full text-left px-3 py-2 rounded-lg text-sm text-ink-2 hover:bg-surface-2 transition-colors"
                 >
                   Accueil
                 </button>
                 <button
                   onClick={() => setView('account')}
-                  className="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                  className="w-full text-left px-3 py-2 rounded-lg text-sm text-ink-2 hover:bg-surface-2 transition-colors"
                 >
                   Mon compte
                 </button>
@@ -575,18 +600,18 @@ export function ChatInterface() {
             )}
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+              className="p-2 rounded-lg bg-surface-2 hover:bg-hairline transition-colors"
               aria-label="Toggle theme"
             >
-              {theme === 'light' ? <Moon size={20} className="text-slate-700" /> : <Sun size={20} className="text-yellow-400" />}
+              {theme === 'light' ? <Moon size={20} className="text-ink-2" /> : <Sun size={20} className="text-maize" />}
             </button>
             <button
               onClick={signOut}
-              className="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-red-100 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+              className="p-2 rounded-lg bg-surface-2 hover:bg-critical-soft hover:text-critical transition-colors"
               aria-label="Se deconnecter"
               title="Se deconnecter"
             >
-              <LogOut size={20} className="text-slate-700 dark:text-slate-300" />
+              <LogOut size={20} className="text-ink-2" />
             </button>
           </div>
         </div>
@@ -599,29 +624,29 @@ export function ChatInterface() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
               {/* Section 1: Invitation au Chat (Hero) */}
               <section className="lg:col-span-5 flex flex-col">
-                <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-lg border border-slate-200 dark:border-slate-700 p-12 min-h-[600px] flex flex-col justify-center items-start text-left relative overflow-hidden transition-colors">
-                  <div className="absolute -top-20 -right-20 w-60 h-60 bg-indigo-50 dark:bg-indigo-900/20 rounded-full blur-3xl opacity-50"></div>
-                  <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-50 dark:bg-blue-900/20 rounded-full blur-2xl opacity-50"></div>
+                <div className="bg-surface rounded-3xl shadow-lg border border-hairline p-12 min-h-[600px] flex flex-col justify-center items-start text-left relative overflow-hidden transition-colors">
+                  <div className="absolute -top-20 -right-20 w-60 h-60 bg-accent-soft rounded-full blur-3xl opacity-60"></div>
+                  <div className="absolute bottom-0 left-0 w-48 h-48 bg-maize-soft rounded-full blur-2xl opacity-60"></div>
 
-                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 text-sm font-semibold mb-8">
+                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent-soft text-accent-ink text-sm font-semibold mb-8">
                     <Sparkles size={16} />
-                    Assistant Virtuel 2.0
+                    Assistant pédagogique · collaboratif
                   </div>
 
-                  <h1 className="text-6xl font-extrabold text-slate-900 dark:text-slate-100 leading-tight mb-6">
+                  <h1 className="font-display text-6xl font-semibold text-ink leading-[1.05] mb-6">
                     Besoin d'aide ? <br />
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-blue-500 dark:from-indigo-400 dark:to-blue-400">
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent to-maize">
                       Discutez avec Epibot.
                     </span>
                   </h1>
-                  
-                  <p className="text-slate-600 dark:text-slate-300 text-xl mb-12 leading-relaxed max-w-lg">
-                    Je suis là pour répondre à vos questions sur la scolarité, l'administration ou la vie du campus. Disponible 24/7.
+
+                  <p className="text-ink-2 text-xl mb-12 leading-relaxed max-w-lg">
+                    Posez vos questions sur les projets et les cours — seul ou à plusieurs. Epibot vous guide sans jamais faire le travail à votre place.
                   </p>
 
-                  <button 
+                  <button
                     onClick={() => setView('chat')}
-                    className="group relative w-full sm:w-auto flex items-center justify-center gap-3 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white px-10 py-5 rounded-xl font-semibold text-lg transition-all shadow-lg shadow-indigo-200 dark:shadow-indigo-900/50 hover:shadow-indigo-300 dark:hover:shadow-indigo-800/50 transform hover:-translate-y-0.5"
+                    className="group relative w-full sm:w-auto flex items-center justify-center gap-3 bg-accent hover:bg-accent-ink text-white px-10 py-5 rounded-xl font-semibold text-lg transition-all shadow-lg shadow-accent/25 hover:shadow-accent/40 transform hover:-translate-y-0.5"
                   >
                     <MessageCircle size={24} />
                     Commencer une discussion
@@ -633,10 +658,10 @@ export function ChatInterface() {
               {/* Section 2: FAQ */}
               <section className="lg:col-span-7">
                 <div className="flex items-center gap-3 mb-8">
-                  <div className="p-3 bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-xl">
+                  <div className="p-3 bg-maize-soft text-maize rounded-xl">
                     <HelpCircle size={24} />
                   </div>
-                  <h2 className="text-4xl font-bold text-slate-800 dark:text-slate-100">Questions fréquentes</h2>
+                  <h2 className="font-display text-4xl font-semibold text-ink">Questions fréquentes</h2>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -650,12 +675,12 @@ export function ChatInterface() {
                 </div>
 
                 <div className="mt-10 flex items-center gap-3">
-                  <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg">
+                  <div className="p-2 bg-accent-soft text-accent-ink rounded-lg">
                     <HelpCircle size={18} />
                   </div>
-                  <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100">QCM Bases C</h3>
+                  <h3 className="font-display text-2xl font-semibold text-ink">QCM Bases C</h3>
                 </div>
-                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                <p className="mt-2 text-sm text-ink-3">
                   Testez vos bases rapidement avant de poser une question.
                 </p>
 
@@ -669,14 +694,14 @@ export function ChatInterface() {
                   ))}
                 </div>
 
-                <div className="mt-8 bg-slate-100 dark:bg-slate-800 rounded-xl p-6 flex items-start gap-4 border border-slate-200 dark:border-slate-700 transition-colors">
-                  <div className="mt-1 text-slate-500 dark:text-slate-400">
+                <div className="mt-8 bg-surface-2 rounded-xl p-6 flex items-start gap-4 border border-hairline transition-colors">
+                  <div className="mt-1">
                     <img src="/epis_mais.png" alt="Epibot" className="w-6 h-6" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-base mb-2">Le saviez-vous ?</h3>
-                    <p className="text-base text-slate-600 dark:text-slate-300 leading-relaxed">
-                      Epibot apprend de chaque conversation. Plus vous posez de questions, plus il devient pertinent pour l'ensemble des étudiants.
+                    <h3 className="font-semibold text-ink text-base mb-2">Le saviez-vous ?</h3>
+                    <p className="text-base text-ink-2 leading-relaxed">
+                      Vous pouvez désormais <b>partager une conversation</b> : invitez d'autres étudiants et interrogez Epibot ensemble, en temps réel.
                     </p>
                   </div>
                 </div>
@@ -687,17 +712,17 @@ export function ChatInterface() {
           /* Vue Chat */
           <div className="h-[calc(100vh-7rem)] flex gap-4">
             {/* Sidebar conversations */}
-            <aside className="w-72 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-4 flex flex-col">
+            <aside className="w-72 bg-surface rounded-2xl shadow-xl border border-hairline p-4 flex flex-col">
               <button
                 onClick={() => createNewConversation('Nouvelle conversation')}
-                className="mb-4 flex items-center gap-2 text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300"
+                className="mb-4 flex items-center gap-2 text-sm font-semibold text-accent hover:text-accent-ink"
               >
                 <Plus size={16} />
                 Nouvelle conversation
               </button>
-              <div className="flex-1 overflow-y-auto space-y-2">
+              <div className="flex-1 overflow-y-auto space-y-1">
                 {conversations.length === 0 && (
-                  <div className="text-xs text-slate-500 dark:text-slate-400">
+                  <div className="text-xs text-ink-3">
                     Aucune conversation
                   </div>
                 )}
@@ -706,8 +731,8 @@ export function ChatInterface() {
                     key={conv.id}
                     className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
                       activeConversationId === conv.id
-                        ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-200'
-                        : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200'
+                        ? 'bg-accent-soft text-accent-ink font-semibold'
+                        : 'hover:bg-surface-2 text-ink-2'
                     }`}
                   >
                     <button
@@ -716,7 +741,7 @@ export function ChatInterface() {
                       title={conv.title || 'Conversation'}
                     >
                       {conv.is_owner === false && (
-                        <Users size={13} className="flex-shrink-0 text-emerald-500" />
+                        <Users size={13} className="flex-shrink-0 text-positive" />
                       )}
                       <span className="truncate">{conv.title || 'Conversation'}</span>
                     </button>
@@ -726,7 +751,7 @@ export function ChatInterface() {
                           e.stopPropagation();
                           handleDeleteConversation(conv.id);
                         }}
-                        className="p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-500 hover:text-red-600"
+                        className="p-1 rounded-md hover:bg-critical-soft text-ink-3 hover:text-critical"
                         title="Supprimer"
                         aria-label="Supprimer la conversation"
                       >
@@ -739,74 +764,109 @@ export function ChatInterface() {
             </aside>
 
             {/* Chat */}
-            <div className="flex-1 flex flex-col bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors">
+            <div className="flex-1 flex flex-col bg-surface rounded-2xl shadow-xl border border-hairline overflow-hidden transition-colors">
               {/* Header du Chat */}
-              <div className="bg-indigo-600 dark:bg-indigo-700 p-4 text-white flex items-center justify-between shadow-md z-10">
+              <div className="bg-gradient-to-r from-accent to-maize p-4 text-white flex items-center justify-between shadow-md z-10">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
                     <img src="/epis_mais.png" alt="Epibot" className="w-6 h-6" />
                   </div>
                   <div>
-                    <h3 className="font-bold">Epibot</h3>
+                    <h3 className="font-display font-semibold text-[15px] leading-tight">Epibot</h3>
                     <div className="flex items-center gap-1.5 opacity-90">
-                      <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-                      <span className="text-xs font-medium">En ligne</span>
+                      <span className="w-2 h-2 bg-emerald-300 rounded-full animate-pulse"></span>
+                      <span className="text-xs font-medium">
+                        {activeMembers.length > 1
+                          ? `En ligne · ${activeMembers.length} participants`
+                          : 'En ligne'}
+                      </span>
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-2">
+                  {/* Présence : avatars empilés des membres */}
+                  {activeMembers.length > 1 && (
+                    <div className="hidden sm:flex items-center pr-1">
+                      {activeMembers.slice(0, 4).map((m, i) => (
+                        <div
+                          key={m.user_id}
+                          className="w-7 h-7 rounded-full border-2 flex items-center justify-center text-[11px] font-bold text-white overflow-hidden"
+                          style={{
+                            marginLeft: i === 0 ? 0 : -8,
+                            borderColor: 'color-mix(in oklab, var(--color-accent) 70%, #fff)',
+                            background: m.user_id === user?.id ? 'var(--color-maize)' : 'var(--color-positive)',
+                          }}
+                          title={m.user?.name || 'Étudiant'}
+                        >
+                          {m.user?.avatar_url ? (
+                            <img src={m.user.avatar_url} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            (m.user?.name || '?').slice(0, 1).toUpperCase()
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {activeConversationId && (
                     <button
                       onClick={() => setShareOpen(true)}
-                      className="p-2 hover:bg-white/10 rounded-full transition-colors flex items-center gap-1.5 text-sm font-medium"
+                      className="px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-lg transition-colors flex items-center gap-1.5 text-[13px] font-semibold"
                       title="Partager la conversation"
                     >
-                      <Share2 size={18} />
+                      <Share2 size={16} />
                       <span className="hidden sm:inline">Partager</span>
                     </button>
                   )}
-                  <button onClick={() => setView('home')} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+                  <button onClick={() => setView('home')} className="p-2 hover:bg-white/15 rounded-full transition-colors">
                     <X size={20} />
                   </button>
                 </div>
               </div>
 
               {/* Zone des messages */}
-              <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-slate-50 dark:bg-slate-900 transition-colors">
+              <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-surface-2 transition-colors">
                 {messages.map((msg) => {
                   // Mon message = à droite. Message d'un autre membre ou du bot = à gauche.
                   const isMine = msg.sender === 'user' && msg.isMine;
                   const isOther = msg.sender === 'user' && !msg.isMine;
+                  const isBot = msg.sender === 'bot';
                   return (
                   <div
                     key={msg.id}
                     className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}
                   >
                     <div className="max-w-[80%]">
-                      {/* Attribution de l'auteur pour les messages des AUTRES membres */}
-                      {isOther && (
+                      {/* Attribution de l'auteur : autres membres (nom) OU bot */}
+                      {(isOther || isBot) && (
                         <div className="flex items-center gap-1.5 mb-1 ml-1">
-                          <div className="w-5 h-5 rounded-full bg-slate-300 dark:bg-slate-600 overflow-hidden flex items-center justify-center">
-                            {msg.authorAvatar ? (
+                          <div
+                            className="w-5 h-5 rounded-full overflow-hidden flex items-center justify-center text-[9px] font-bold text-white"
+                            style={{
+                              background: isBot
+                                ? 'linear-gradient(150deg, var(--color-accent), var(--color-maize))'
+                                : 'var(--color-positive)',
+                            }}
+                          >
+                            {isBot ? (
+                              <img src="/epis_mais.png" alt="" className="w-3.5 h-3.5" />
+                            ) : msg.authorAvatar ? (
                               <img src={msg.authorAvatar} alt="" className="w-full h-full object-cover" />
                             ) : (
-                              <span className="text-[9px] font-bold text-slate-600 dark:text-slate-200">
-                                {(msg.authorName || '?').slice(0, 1).toUpperCase()}
-                              </span>
+                              (msg.authorName || '?').slice(0, 1).toUpperCase()
                             )}
                           </div>
-                          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                            {msg.authorName || 'Étudiant'}
+                          <span className="text-xs font-medium text-ink-3">
+                            {isBot ? 'Epibot' : (msg.authorName || 'Étudiant')}
                           </span>
                         </div>
                       )}
                     <div className={`
                       rounded-2xl p-4 shadow-sm
                       ${isMine
-                        ? 'bg-indigo-600 dark:bg-indigo-700 text-white rounded-br-none'
+                        ? 'bg-accent text-white rounded-br-none'
                         : isOther
-                        ? 'bg-emerald-50 dark:bg-emerald-900/20 text-slate-800 dark:text-slate-100 border border-emerald-100 dark:border-emerald-800 rounded-bl-none'
-                        : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-100 dark:border-slate-700 rounded-bl-none'}
+                        ? 'bg-positive-soft text-ink border border-positive/25 rounded-bl-none'
+                        : 'bg-surface text-ink border border-hairline rounded-bl-none'}
                     `}>
                       <div className="text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -818,14 +878,14 @@ export function ChatInterface() {
                           {msg.sources.map((source) => (
                             <span
                               key={source}
-                              className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800"
+                              className="text-[10px] px-2 py-0.5 rounded-full bg-accent-soft text-accent-ink border border-accent/20"
                             >
                               📎 {source}
                             </span>
                           ))}
                         </div>
                       )}
-                      <span className={`text-[10px] block mt-2 ${isMine ? 'text-indigo-200' : 'text-slate-400'}`}>
+                      <span className={`text-[10px] block mt-2 ${isMine ? 'text-white/70' : 'text-ink-3'}`}>
                         {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
@@ -836,10 +896,10 @@ export function ChatInterface() {
 
                 {isTyping && (
                   <div className="flex justify-start">
-                    <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl rounded-bl-none p-4 shadow-sm flex items-center gap-1 transition-colors">
-                      <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></span>
-                      <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce [animation-delay:0.2s]"></span>
-                      <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce [animation-delay:0.4s]"></span>
+                    <div className="bg-surface border border-hairline rounded-2xl rounded-bl-none p-4 shadow-sm flex items-center gap-1 transition-colors">
+                      <span className="w-2 h-2 bg-ink-3 rounded-full animate-bounce"></span>
+                      <span className="w-2 h-2 bg-ink-3 rounded-full animate-bounce [animation-delay:0.2s]"></span>
+                      <span className="w-2 h-2 bg-ink-3 rounded-full animate-bounce [animation-delay:0.4s]"></span>
                     </div>
                   </div>
                 )}
@@ -847,7 +907,7 @@ export function ChatInterface() {
               </div>
 
               {lastBotMessageId && !isTyping && (
-                <div className="px-4 py-2 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                <div className="px-4 py-2 bg-surface-2 border-t border-hairline text-xs text-ink-3 flex items-center gap-2">
                   {lastFeedback ? (
                     <span>
                       {lastFeedback === 'yes'
@@ -859,13 +919,13 @@ export function ChatInterface() {
                       <span>Cette réponse vous a-t-elle été utile ?</span>
                       <button
                         onClick={() => handleFeedback('yes')}
-                        className="px-2 py-1 rounded-md border text-xs transition-colors bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                        className="px-2.5 py-1 rounded-md border text-xs font-medium transition-colors bg-surface border-hairline text-ink-2 hover:bg-positive-soft hover:text-positive hover:border-positive/30"
                       >
                         Oui
                       </button>
                       <button
                         onClick={() => handleFeedback('no')}
-                        className="px-2 py-1 rounded-md border text-xs transition-colors bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        className="px-2.5 py-1 rounded-md border text-xs font-medium transition-colors bg-surface border-hairline text-ink-2 hover:bg-critical-soft hover:text-critical hover:border-critical/30"
                       >
                         Non
                       </button>
@@ -874,8 +934,8 @@ export function ChatInterface() {
                 </div>
               )}
               {/* Zone de saisie */}
-              <div className="p-4 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 transition-colors">
-                <form 
+              <div className="p-4 bg-surface border-t border-hairline transition-colors">
+                <form
                   onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }}
                   className="flex gap-2"
                 >
@@ -884,12 +944,12 @@ export function ChatInterface() {
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
                     placeholder="Posez votre question à Epibot..."
-                    className="flex-1 bg-slate-100 dark:bg-slate-700 border-transparent focus:bg-white dark:focus:bg-slate-600 focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200 dark:focus:ring-indigo-800 rounded-xl px-4 py-3 outline-none transition-all text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                    className="flex-1 bg-surface-2 border border-hairline focus:border-accent focus:ring-2 focus:ring-accent/20 rounded-xl px-4 py-3 outline-none transition-all text-ink placeholder:text-ink-3"
                   />
-                  <button 
+                  <button
                     type="submit"
                     disabled={!inputValue.trim() || isTyping}
-                    className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl p-3 transition-colors flex items-center justify-center aspect-square"
+                    className="bg-accent hover:bg-accent-ink disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl p-3 transition-colors flex items-center justify-center aspect-square"
                   >
                     <Send size={20} />
                   </button>
@@ -899,64 +959,64 @@ export function ChatInterface() {
           </div>
         ) : (
           <div className="max-w-4xl mx-auto">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-8 transition-colors">
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">Mon compte</h2>
+            <div className="bg-surface rounded-2xl shadow-xl border border-hairline p-8 transition-colors">
+              <h2 className="font-display text-2xl font-semibold text-ink mb-6">Mon compte</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-4">
                   <div className="flex items-center gap-4">
-                    <div className="w-20 h-20 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden flex items-center justify-center">
+                    <div className="w-20 h-20 rounded-full bg-surface-2 overflow-hidden flex items-center justify-center">
                       {avatarPreview ? (
                         <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
                       ) : (
-                        <span className="text-2xl font-bold text-slate-600 dark:text-slate-200">
+                        <span className="text-2xl font-bold text-ink-2">
                           {(profile.name || profile.email || 'U').slice(0, 1).toUpperCase()}
                         </span>
                       )}
                     </div>
                     <div>
-                      <p className="text-sm text-slate-500 dark:text-slate-400">Avatar</p>
-                      <label className="text-sm font-medium text-indigo-600 dark:text-indigo-400 cursor-pointer">
+                      <p className="text-sm text-ink-3">Avatar</p>
+                      <label className="text-sm font-medium text-accent cursor-pointer">
                         Changer
                         <input type="file" accept="image/*" className="hidden" onChange={handleAvatarFile} />
                       </label>
                     </div>
                   </div>
                   <div>
-                    <label className="text-sm text-slate-500 dark:text-slate-400">URL de l'avatar</label>
+                    <label className="text-sm text-ink-3">URL de l'avatar</label>
                     <input
                       type="text"
                       value={avatarUrl}
                       onChange={(e) => handleAvatarUrl(e.target.value)}
                       placeholder="https://..."
-                      className="mt-1 w-full bg-slate-100 dark:bg-slate-700 border border-transparent focus:border-indigo-500 dark:focus:border-indigo-400 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                      className="mt-1 w-full bg-surface-2 border border-hairline focus:border-accent rounded-lg px-3 py-2 text-sm text-ink placeholder:text-ink-3 outline-none"
                     />
                   </div>
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <label className="text-sm text-slate-500 dark:text-slate-400">Nom</label>
+                    <label className="text-sm text-ink-3">Nom</label>
                     <input
                       type="text"
                       value={profile.name}
                       onChange={(e) => setProfile((prev) => ({ ...prev, name: e.target.value }))}
-                      className="mt-1 w-full bg-slate-100 dark:bg-slate-700 border border-transparent focus:border-indigo-500 dark:focus:border-indigo-400 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-slate-100"
+                      className="mt-1 w-full bg-surface-2 border border-hairline focus:border-accent rounded-lg px-3 py-2 text-sm text-ink outline-none"
                     />
                   </div>
                   <div>
-                    <label className="text-sm text-slate-500 dark:text-slate-400">Email</label>
+                    <label className="text-sm text-ink-3">Email</label>
                     <input
                       type="email"
                       value={profile.email}
                       readOnly
-                      className="mt-1 w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-500 dark:text-slate-400 cursor-not-allowed"
+                      className="mt-1 w-full bg-surface-2 border border-hairline rounded-lg px-3 py-2 text-sm text-ink-3 cursor-not-allowed"
                     />
                   </div>
-                  <div className="text-sm text-slate-600 dark:text-slate-300">
-                    Temps de connexion : <span className="font-semibold">{formatDuration(sessionSeconds)}</span>
+                  <div className="text-sm text-ink-2">
+                    Temps de connexion : <span className="font-semibold tnum">{formatDuration(sessionSeconds)}</span>
                   </div>
                   <button
                     type="button"
-                    className="mt-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors"
+                    className="mt-2 px-4 py-2 bg-accent hover:bg-accent-ink text-white text-sm font-medium rounded-lg transition-colors"
                   >
                     Enregistrer
                   </button>
@@ -985,24 +1045,24 @@ const GeneralFAQCard = ({ faq, onAsk }: { faq: GeneralFAQItem; onAsk: () => void
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 hover:shadow-lg transition-all cursor-pointer group min-h-[140px] flex flex-col" onClick={() => setIsOpen(!isOpen)}>
+    <div className="bg-surface border border-hairline rounded-xl p-6 hover:shadow-lg hover:border-accent/30 transition-all cursor-pointer group min-h-[140px] flex flex-col" onClick={() => setIsOpen(!isOpen)}>
       <div className="flex justify-between items-start gap-3 flex-1">
         <div className="flex-1">
-          <span className="inline-block px-3 py-1 rounded-md text-xs font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 mb-3">
+          <span className="inline-block px-3 py-1 rounded-md text-xs font-bold uppercase tracking-wider bg-surface-2 text-ink-3 mb-3">
             {faq.category}
           </span>
-          <h3 className="font-semibold text-lg text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors leading-snug">
+          <h3 className="font-semibold text-lg text-ink group-hover:text-accent transition-colors leading-snug">
             {faq.question}
           </h3>
         </div>
-        <div className={`text-slate-400 dark:text-slate-500 transition-transform duration-300 flex-shrink-0 ${isOpen ? 'rotate-90' : ''}`}>
+        <div className={`text-ink-3 transition-transform duration-300 flex-shrink-0 ${isOpen ? 'rotate-90' : ''}`}>
           <ChevronRight size={20} />
         </div>
       </div>
 
       <div className={`grid transition-all duration-300 ease-in-out ${isOpen ? 'grid-rows-[1fr] opacity-100 mt-4' : 'grid-rows-[0fr] opacity-0'}`}>
         <div className="overflow-hidden">
-          <p className="text-base text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900 p-4 rounded-lg border border-slate-100 dark:border-slate-700 leading-relaxed">
+          <p className="text-base text-ink-2 bg-surface-2 p-4 rounded-lg border border-hairline leading-relaxed">
             {faq.answer}
           </p>
           <button
@@ -1010,7 +1070,7 @@ const GeneralFAQCard = ({ faq, onAsk }: { faq: GeneralFAQItem; onAsk: () => void
               e.stopPropagation();
               onAsk();
             }}
-            className="text-sm font-medium text-indigo-600 dark:text-indigo-400 mt-3 hover:underline flex items-center gap-2"
+            className="text-sm font-medium text-accent mt-3 hover:underline flex items-center gap-2"
           >
             <MessageCircle size={14} />
             Poser cette question dans le chat
@@ -1028,21 +1088,21 @@ const FAQCard = ({ faq, onAsk }: { faq: FAQItem; onAsk: () => void }) => {
   const isCorrect = selectedIndex !== null && selectedIndex === faq.correctIndex;
 
   return (
-    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 hover:shadow-lg transition-all cursor-pointer group min-h-[140px] flex flex-col" onClick={() => setIsOpen(!isOpen)}>
+    <div className="bg-surface border border-hairline rounded-xl p-6 hover:shadow-lg hover:border-accent/30 transition-all cursor-pointer group min-h-[140px] flex flex-col" onClick={() => setIsOpen(!isOpen)}>
       <div className="flex justify-between items-start gap-3 flex-1">
         <div className="flex-1">
-          <span className="inline-block px-3 py-1 rounded-md text-xs font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 mb-3">
+          <span className="inline-block px-3 py-1 rounded-md text-xs font-bold uppercase tracking-wider bg-surface-2 text-ink-3 mb-3">
             {faq.category}
           </span>
-          <h3 className="font-semibold text-lg text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors leading-snug">
+          <h3 className="font-semibold text-lg text-ink group-hover:text-accent transition-colors leading-snug">
             {faq.question}
           </h3>
         </div>
-        <div className={`text-slate-400 dark:text-slate-500 transition-transform duration-300 flex-shrink-0 ${isOpen ? 'rotate-90' : ''}`}>
+        <div className={`text-ink-3 transition-transform duration-300 flex-shrink-0 ${isOpen ? 'rotate-90' : ''}`}>
           <ChevronRight size={20} />
         </div>
       </div>
-      
+
       <div className={`grid transition-all duration-300 ease-in-out ${isOpen ? 'grid-rows-[1fr] opacity-100 mt-4' : 'grid-rows-[0fr] opacity-0'}`}>
         <div className="overflow-hidden">
           <div className="space-y-2">
@@ -1056,9 +1116,9 @@ const FAQCard = ({ faq, onAsk }: { faq: FAQItem; onAsk: () => void }) => {
                 className={`w-full text-left px-3 py-2 rounded-lg border text-sm transition-colors ${
                   selectedIndex === idx
                     ? (idx === faq.correctIndex
-                        ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300'
-                        : 'border-red-400 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300')
-                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        ? 'border-positive bg-positive-soft text-positive'
+                        : 'border-critical bg-critical-soft text-critical')
+                    : 'border-hairline bg-surface-2 text-ink-2 hover:bg-hairline'
                 }`}
               >
                 {option}
@@ -1068,18 +1128,18 @@ const FAQCard = ({ faq, onAsk }: { faq: FAQItem; onAsk: () => void }) => {
           {selectedIndex !== null && (
             <p className={`mt-3 text-sm px-3 py-2 rounded-lg border ${
               isCorrect
-                ? 'border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300'
-                : 'border-amber-200 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300'
+                ? 'border-positive/40 bg-positive-soft text-positive'
+                : 'border-watch/40 bg-watch-soft text-watch'
             }`}>
               {isCorrect ? 'Bonne réponse.' : 'Pas tout à fait.'} {faq.answer}
             </p>
           )}
-          <button 
+          <button
             onClick={(e) => {
               e.stopPropagation();
               onAsk();
             }}
-            className="text-sm font-medium text-indigo-600 dark:text-indigo-400 mt-3 hover:underline flex items-center gap-2"
+            className="text-sm font-medium text-accent mt-3 hover:underline flex items-center gap-2"
           >
             <MessageCircle size={14} />
             Poser cette question dans le chat

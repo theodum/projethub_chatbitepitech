@@ -12,16 +12,9 @@ import { PromoSetup } from './components/PromoSetup';
  */
 function App() {
   const { user, loading: authLoading } = useAuth();
-  const { isAdmin, loading: roleLoading, role } = useUserRole();
+  const { isAdmin, loading: roleLoading } = useUserRole();
   const [profileLoading, setProfileLoading] = useState(true);
   const [needsPromo, setNeedsPromo] = useState(false);
-
-  // Debug: afficher le rôle dans la console
-  useEffect(() => {
-    if (user && !roleLoading) {
-      console.log('App - User:', user.email, 'Role:', role, 'isAdmin:', isAdmin);
-    }
-  }, [user, role, isAdmin, roleLoading]);
 
   useEffect(() => {
     let active = true;

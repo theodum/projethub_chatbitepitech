@@ -21,7 +21,6 @@ export function useUserRole() {
       try {
         const userData = await getUserById(user.id);
         const userRole = userData?.role || 'user';
-        console.log('Role utilisateur recupere:', userRole, 'Email:', userData?.email);
         setRole(userRole);
       } catch (error) {
         console.error('Erreur lors de la recuperation du role:', error);

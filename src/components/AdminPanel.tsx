@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Users,
   Search,
-  MessageSquare,
   AlertTriangle,
   Activity,
   ShieldAlert,
@@ -34,35 +33,6 @@ import type { AdminAlert, Message, User } from '../types';
 
 type ViewState = 'dashboard' | 'students' | 'analytics' | 'documents' | 'quality' | 'moderation';
 
-const darkMode = {
-  // Backgrounds
-  bg: {
-    main: 'bg-slate-100 dark:bg-slate-900',
-    card: 'bg-white dark:bg-slate-800',
-    secondary: 'bg-slate-50 dark:bg-slate-900',
-    input: 'bg-slate-100 dark:bg-slate-700',
-    hover: 'hover:bg-slate-50 dark:hover:bg-slate-700/50',
-  },
-  // Textes
-  text: {
-    primary: 'text-slate-900 dark:text-slate-100',
-    secondary: 'text-slate-700 dark:text-slate-300',
-    muted: 'text-slate-500 dark:text-slate-400',
-    input: 'text-slate-900 dark:text-slate-100',
-    placeholder: 'placeholder:text-slate-400 dark:placeholder:text-slate-500',
-  },
-  // Bordures
-  border: {
-    default: 'border-slate-200 dark:border-slate-700',
-    light: 'border-slate-100 dark:border-slate-700',
-  },
-  // Transitions
-  transition: 'transition-colors',
-  // Combinaisons courantes
-  card: 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-colors',
-  container: 'bg-slate-100 dark:bg-slate-900 transition-colors',
-};
-
 interface MessageWithUser extends Message {
   user_id?: string | null;
 }
@@ -85,29 +55,29 @@ type UsageStatus = 'modere' | 'moyenne' | 'critique' | 'abusive';
 
 const getUsageStatus = (score: number): { label: string; color: string; darkColor: string; icon: React.ReactNode; status: UsageStatus } => {
   const statuses = {
-    modere: { 
-      label: 'Utilisation Modérée', 
-      color: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-      darkColor: 'dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800',
-      icon: <CheckCircle size={16} /> 
+    modere: {
+      label: 'Utilisation Modérée',
+      color: 'bg-positive-soft text-positive border-positive/25',
+      darkColor: '',
+      icon: <CheckCircle size={16} />
     },
-    moyenne: { 
-      label: 'Utilisation Moyenne', 
-      color: 'bg-blue-100 text-blue-700 border-blue-200',
-      darkColor: 'dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800',
-      icon: <Activity size={16} /> 
+    moyenne: {
+      label: 'Utilisation Moyenne',
+      color: 'bg-accent-soft text-accent-ink border-accent/25',
+      darkColor: '',
+      icon: <Activity size={16} />
     },
-    critique: { 
-      label: 'Utilisation Critique', 
-      color: 'bg-orange-100 text-orange-700 border-orange-200',
-      darkColor: 'dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800',
-      icon: <AlertTriangle size={16} /> 
+    critique: {
+      label: 'Utilisation Critique',
+      color: 'bg-watch-soft text-watch border-watch/25',
+      darkColor: '',
+      icon: <AlertTriangle size={16} />
     },
-    abusive: { 
-      label: 'Utilisation Abusive', 
-      color: 'bg-red-100 text-red-700 border-red-200',
-      darkColor: 'dark:bg-red-900/30 dark:text-red-300 dark:border-red-800',
-      icon: <ShieldAlert size={16} /> 
+    abusive: {
+      label: 'Utilisation Abusive',
+      color: 'bg-critical-soft text-critical border-critical/25',
+      darkColor: '',
+      icon: <ShieldAlert size={16} />
     }
   };
 
@@ -230,83 +200,138 @@ export function AdminPanel() {
     const botMessages = messages.filter(m => !m.user_id).length;
     const botResponseRate = totalMessages > 0 ? ((botMessages / totalMessages) * 100).toFixed(1) : '0';
 
+    // Satisfaction (réutilise la logique de la vue Qualité)
+    const rated = messages.filter(m => !m.user_id && (m.feedback === 'up' || m.feedback === 'down'));
+    const up = rated.filter(m => m.feedback === 'up').length;
+    const satisfaction = rated.length ? Math.round((up / rated.length) * 100) : null;
+
+    // Messages signalés (modération) et trous de connaissance
+    const flagged = messages.filter(m => m.user_id && m.flagged);
+    const gaps = messages
+      .filter(m => !m.user_id && m.rag_context_found === false && typeof m.rag_similarity === 'number')
+      .sort((a, b) => (b.rag_similarity as number) - (a.rag_similarity as number))
+      .slice(0, 4);
+
+    const watchlist = users.filter(u => u.usageScore > 60).sort((a, b) => b.usageScore - a.usageScore).slice(0, 3);
+
+    // Petite sparkline décorative (répartition d'activité) — barres pseudo-stables par index
+    const spark = (seed: number) => Array.from({ length: 7 }, (_, i) => 30 + ((seed * 13 + i * 29) % 60));
+
+    const Kpi = ({ label, value, unit, delta, deltaUp, seed, accent }:
+      { label: string; value: string; unit?: string; delta?: string; deltaUp?: boolean; seed: number; accent?: 'accent' | 'critical' | 'positive' }) => {
+      const barColor = accent === 'critical' ? 'bg-critical' : accent === 'positive' ? 'bg-positive' : 'bg-accent';
+      return (
+        <div className="border border-hairline rounded-[10px] bg-surface px-3.5 py-3">
+          <div className="text-[10.5px] font-bold uppercase tracking-wider text-ink-3">{label}</div>
+          <div className="font-num text-[26px] leading-none mt-1.5 text-ink">{value}<span className="text-[15px]">{unit}</span></div>
+          {delta && (
+            <div className={`text-[11px] font-semibold mt-1.5 ${deltaUp ? 'text-positive' : 'text-critical'}`}>
+              {deltaUp ? '▲' : '▲'} {delta}
+            </div>
+          )}
+          <div className="flex items-end gap-[2px] h-[22px] mt-2">
+            {spark(seed).map((h, i) => (
+              <span key={i} className={`flex-1 rounded-[1px] ${i === 6 ? barColor : 'bg-accent/35'}`} style={{ height: `${h}%` }} />
+            ))}
+          </div>
+        </div>
+      );
+    };
+
     return (
-      <div className="p-8 max-w-6xl mx-auto animate-in fade-in duration-500 bg-transparent">
-        <h1 className={`text-3xl font-bold mb-2 ${darkMode.text.primary} ${darkMode.transition}`}>Bienvenue sur le cockpit Epibot</h1>
-        <p className={`mb-10 ${darkMode.text.muted} ${darkMode.transition}`}>Selectionnez une vue pour gerer ou analyser l'activite du chatbot.</p>
+      <div className="p-5 max-w-[1180px] mx-auto animate-in fade-in duration-300">
+        <div className="flex items-baseline gap-3">
+          <h1 className="font-display text-base text-ink">Vue d'ensemble</h1>
+          <span className="font-num text-[11.5px] text-ink-3">admin / dashboard · 7 derniers jours</span>
+        </div>
+        <p className="text-[12.5px] text-ink-2 mt-1 mb-4">Pilotage de l'activité, de la qualité des réponses et de la modération.</p>
 
         {alerts.length > 0 && (
-          <div className="mb-8 rounded-xl border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-900/20 px-4 py-3 text-sm text-orange-700 dark:text-orange-300">
-            <div className="flex items-center gap-2 font-semibold mb-2">
-              <AlertTriangle size={18} />
-              Alertes usage (aujourd'hui)
+          <div className="mb-3 rounded-[10px] border border-watch/40 bg-watch-soft px-3.5 py-2.5 text-[12.5px] text-watch">
+            <div className="flex items-center gap-2 font-semibold mb-1">
+              <AlertTriangle size={15} /> Alertes usage (aujourd'hui)
             </div>
-            <div className="space-y-1">
-              {alerts.map((alert) => (
-                <div key={alert.id}>{alert.message}</div>
-              ))}
+            <div className="space-y-0.5">
+              {alerts.map((alert) => (<div key={alert.id}>{alert.message}</div>))}
             </div>
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-          <div
-            onClick={() => setCurrentView('students')}
-            className={`group relative ${darkMode.card} rounded-2xl p-8 cursor-pointer hover:shadow-xl hover:border-indigo-300 dark:hover:border-indigo-600 transition-all duration-300`}
-          >
-            <div className="absolute top-8 right-8 bg-indigo-50 dark:bg-indigo-900/30 p-3 rounded-xl text-indigo-600 dark:text-indigo-400 group-hover:bg-indigo-600 dark:group-hover:bg-indigo-500 group-hover:text-white transition-colors">
-              <Users size={32} />
+        {/* KPI compacts */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 mb-3">
+          <Kpi label="Messages totaux" value={totalMessages.toLocaleString('fr-FR')} delta="cette semaine" deltaUp seed={2} />
+          <Kpi label="Utilisations critiques" value={String(criticalUsers)} delta={`${watchlist.length} à surveiller`} accent="critical" seed={5} />
+          <Kpi label="Taux de réponse bot" value={botResponseRate} unit="%" seed={3} />
+          <Kpi label="Satisfaction" value={satisfaction === null ? '—' : String(satisfaction)} unit={satisfaction === null ? '' : '%'} delta="réponses notées" deltaUp accent="positive" seed={7} />
+        </div>
+
+        {/* Deux panneaux : modération + trous */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1.35fr_1fr] gap-3">
+          <div className="border border-hairline rounded-[10px] bg-surface overflow-hidden">
+            <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline">
+              <span className="text-[12.5px] font-bold text-ink">Modération — à confirmer</span>
+              <span className="font-num text-[10.5px] font-semibold px-1.5 py-0.5 rounded bg-critical-soft text-critical">{flagged.length} signalés</span>
             </div>
-            <h2 className={`text-2xl font-bold mb-3 ${darkMode.text.secondary} ${darkMode.transition}`}>Vue Etudiants</h2>
-            <p className={`mb-6 pr-12 ${darkMode.text.secondary} ${darkMode.transition}`}>
-              Accedez aux details individuels. Analysez les scores d'utilisation, lisez l'historique des conversations et moderez les comptes a risque.
-            </p>
-            <div className="flex items-center text-indigo-600 dark:text-indigo-400 font-semibold group-hover:translate-x-2 transition-transform">
-              Gerer les comptes <ArrowRight size={18} className="ml-2" />
-            </div>
+            {flagged.slice(0, 3).map((m) => (
+              <div key={m.id} className="flex items-center gap-2.5 px-3.5 py-2.5 border-b border-hairline last:border-b-0 text-[12.5px]">
+                <span className="w-[3px] self-stretch rounded-full bg-critical" />
+                <span className="font-num text-[10.5px] font-semibold px-1.5 py-0.5 rounded bg-critical-soft text-critical">CODE</span>
+                <div className="flex-1 min-w-0">
+                  <div className="truncate text-ink">« {m.content} »</div>
+                </div>
+              </div>
+            ))}
+            {watchlist.map((u) => (
+              <div key={u.id} className="flex items-center gap-2.5 px-3.5 py-2.5 border-b border-hairline last:border-b-0 text-[12.5px]">
+                <span className="w-[3px] self-stretch rounded-full bg-watch" />
+                <span className="font-num text-[10.5px] font-semibold px-1.5 py-0.5 rounded bg-watch-soft text-watch">USAGE</span>
+                <div className="flex-1 min-w-0">
+                  <div className="truncate text-ink">{u.dailyMessageCount} messages aujourd'hui — surveiller</div>
+                  <div className="font-num text-[11px] text-ink-3">{u.email} · promo {u.promo ?? '—'}</div>
+                </div>
+                <div className="w-[70px] h-1.5 rounded-full bg-surface-2 overflow-hidden">
+                  <span className="block h-full bg-watch" style={{ width: `${u.usageScore}%` }} />
+                </div>
+              </div>
+            ))}
+            {flagged.length === 0 && watchlist.length === 0 && (
+              <div className="px-3.5 py-6 text-center text-[12px] text-ink-3">Aucun signalement · tout est sain ✓</div>
+            )}
           </div>
 
-          <div
-            onClick={() => setCurrentView('analytics')}
-            className={`group relative ${darkMode.card} rounded-2xl p-8 cursor-pointer hover:shadow-xl hover:border-emerald-300 dark:hover:border-emerald-600 transition-all duration-300`}
-          >
-            <div className="absolute top-8 right-8 bg-emerald-50 dark:bg-emerald-900/30 p-3 rounded-xl text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-600 dark:group-hover:bg-emerald-500 group-hover:text-white transition-colors">
-              <TrendingUp size={32} />
+          <div className="border border-hairline rounded-[10px] bg-surface overflow-hidden">
+            <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline">
+              <span className="text-[12.5px] font-bold text-ink">Trous de connaissance</span>
+              <span className="font-num text-[10.5px] font-semibold px-1.5 py-0.5 rounded bg-watch-soft text-watch">sous 0.65</span>
             </div>
-            <h2 className={`text-2xl font-bold mb-3 ${darkMode.text.secondary} ${darkMode.transition}`}>Vue Analytique</h2>
-            <p className={`mb-6 pr-12 ${darkMode.text.secondary} ${darkMode.transition}`}>
-              Visualisez les tendances globales. Decouvrez les questions les plus frequentes par promo et identifiez les pics d'activite.
-            </p>
-            <div className="flex items-center text-emerald-600 dark:text-emerald-400 font-semibold group-hover:translate-x-2 transition-transform">
-              Voir les statistiques <ArrowRight size={18} className="ml-2" />
-            </div>
+            {gaps.map((m) => (
+              <div key={m.id} className="flex items-center gap-2.5 px-3.5 py-2.5 border-b border-hairline last:border-b-0 text-[12.5px]">
+                <div className="flex-1 min-w-0 truncate text-ink">« {m.content} »</div>
+                <span className="font-num text-watch">{(m.rag_similarity as number).toFixed(2)}</span>
+              </div>
+            ))}
+            {gaps.length === 0 && (
+              <div className="px-3.5 py-6 text-center text-[12px] text-ink-3">Aucun trou détecté récemment</div>
+            )}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className={`${darkMode.card} p-4 rounded-xl shadow-sm flex items-center gap-4`}>
-            <div className="p-3 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"><MessageSquare size={20} /></div>
+        {/* Accès rapides discrets */}
+        <div className="grid grid-cols-2 gap-2.5 mt-3">
+          <button onClick={() => setCurrentView('students')} className="group flex items-center justify-between border border-hairline rounded-[10px] bg-surface px-3.5 py-3 hover:border-accent transition-colors text-left">
             <div>
-              <p className={`text-xs font-bold uppercase ${darkMode.text.muted} ${darkMode.transition}`}>Messages Totaux</p>
-              <p className={`text-xl font-bold ${darkMode.text.primary} ${darkMode.transition}`}>{totalMessages}</p>
+              <div className="text-[13px] font-semibold text-ink">Vue Étudiants</div>
+              <div className="text-[11.5px] text-ink-3">Scores d'usage · historique · modération</div>
             </div>
-          </div>
-          <div className={`${darkMode.card} p-4 rounded-xl shadow-sm flex items-center gap-4`}>
-            <div className="p-3 rounded-full bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400"><AlertTriangle size={20} /></div>
+            <ArrowRight size={16} className="text-accent group-hover:translate-x-1 transition-transform" />
+          </button>
+          <button onClick={() => setCurrentView('analytics')} className="group flex items-center justify-between border border-hairline rounded-[10px] bg-surface px-3.5 py-3 hover:border-accent transition-colors text-left">
             <div>
-              <p className={`text-xs font-bold uppercase ${darkMode.text.muted} ${darkMode.transition}`}>Utilisations Critiques</p>
-              <p className={`text-xl font-bold ${darkMode.text.primary} ${darkMode.transition}`}>{criticalUsers}</p>
+              <div className="text-[13px] font-semibold text-ink">Vue Analytique</div>
+              <div className="text-[11.5px] text-ink-3">Tendances · documents · pics d'activité</div>
             </div>
-          </div>
-          <div className={`${darkMode.card} p-4 rounded-xl shadow-sm flex items-center gap-4`}>
-            <div className="p-3 rounded-full bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">
-              <img src="/epis_mais.png" alt="Epibot" className="w-5 h-5" />
-            </div>
-            <div>
-              <p className={`text-xs font-bold uppercase ${darkMode.text.muted} ${darkMode.transition}`}>Taux de reponse Bot</p>
-              <p className={`text-xl font-bold ${darkMode.text.primary} ${darkMode.transition}`}>{botResponseRate}%</p>
-            </div>
-          </div>
+            <ArrowRight size={16} className="text-accent group-hover:translate-x-1 transition-transform" />
+          </button>
         </div>
       </div>
     );
@@ -341,111 +366,112 @@ export function AdminPanel() {
     const totalInteractions = Object.values(promoStats).reduce((sum, count) => sum + count, 0);
     const promoEntries = Object.entries(promoStats).sort((a, b) => b[1] - a[1]);
 
-    const colors = ['bg-blue-500', 'bg-indigo-500', 'bg-purple-500', 'bg-pink-500', 'bg-emerald-500'];
+    // Palette catégorielle (séries distinctes, PAS des états) accordée au design
+    // system : accent indigo, violet, ambre maïs, émeraude, rose.
+    const colors = ['bg-accent', 'bg-violet-500', 'bg-maize', 'bg-positive', 'bg-critical'];
 
     return (
-      <div className={`flex-1 overflow-y-auto ${darkMode.bg.secondary} p-8 animate-in slide-in-from-right-4 duration-500 ${darkMode.transition}`}>
-        <div className="max-w-6xl mx-auto">
-          <div className="mb-8 flex items-center justify-between">
-            <div>
-              <h1 className={`text-2xl font-bold ${darkMode.text.primary} ${darkMode.transition}`}>Tendances & Statistiques</h1>
-              <p className={`${darkMode.text.muted} ${darkMode.transition}`}>Analyse globale des interactions etudiants.</p>
-            </div>
-            <button onClick={() => setCurrentView('dashboard')} className={`text-sm font-medium ${darkMode.text.muted} hover:text-indigo-600 dark:hover:text-indigo-400 ${darkMode.transition}`}>
-              Retour Dashboard
-            </button>
+      <div className="flex-1 overflow-y-auto p-5 max-w-[1180px] mx-auto animate-in fade-in duration-300">
+        <div className="flex items-baseline justify-between gap-3">
+          <div className="flex items-baseline gap-3">
+            <h1 className="font-display text-base text-ink">Tendances & Statistiques</h1>
+            <span className="font-num text-[11.5px] text-ink-3">admin / analytics · interactions étudiants</span>
           </div>
+          <button onClick={() => setCurrentView('dashboard')} className="text-[12px] font-medium text-ink-3 hover:text-accent transition-colors">
+            Retour Dashboard
+          </button>
+        </div>
+        <p className="text-[12.5px] text-ink-2 mt-1 mb-4">Analyse globale des interactions etudiants.</p>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className={`${darkMode.card} rounded-2xl p-6 shadow-sm`}>
-              <h3 className={`font-bold ${darkMode.text.secondary} mb-6 flex items-center gap-2 ${darkMode.transition}`}>
-                <TrendingUp size={20} className="text-emerald-500 dark:text-emerald-400" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <div className="border border-hairline rounded-[10px] bg-surface overflow-hidden">
+            <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline">
+              <span className="flex items-center gap-2 text-[12.5px] font-bold text-ink">
+                <TrendingUp size={15} className="text-positive" />
                 Documents les plus consultés
-              </h3>
-              <div className="space-y-4">
-                {trends.length > 0 ? trends.map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-4 group">
-                    <span className={`w-6 text-center font-bold text-sm ${darkMode.text.muted} ${darkMode.transition}`}>#{idx + 1}</span>
-                    <div className="flex-1">
-                      <div className="flex justify-between mb-1">
-                        <span className={`font-medium ${darkMode.text.secondary} ${darkMode.transition}`}>{item.topic}</span>
-                        <span className={`text-xs font-bold ${darkMode.text.muted} ${darkMode.transition}`}>{item.count}×</span>
-                      </div>
-                      <div className={`w-full ${darkMode.bg.input} rounded-full h-2 overflow-hidden ${darkMode.transition}`}>
-                        <div
-                          className="bg-indigo-500 dark:bg-indigo-400 h-2 rounded-full"
-                          style={{ width: `${Math.min(100, (item.count / (trends[0]?.count || 1)) * 100)}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                    <div className={`text-xs px-2 py-1 rounded-full ${darkMode.bg.input} ${darkMode.text.muted} ${darkMode.transition}`}>
-                      →
-                    </div>
-                  </div>
-                )) : (
-                  <p className={`${darkMode.text.muted} text-center py-8 ${darkMode.transition}`}>Aucune donnee disponible</p>
-                )}
-              </div>
+              </span>
             </div>
-
-            <div className={`${darkMode.card} rounded-2xl p-6 shadow-sm`}>
-              <h3 className={`font-bold ${darkMode.text.secondary} mb-6 flex items-center gap-2 ${darkMode.transition}`}>
-                <PieChart size={20} className="text-indigo-500 dark:text-indigo-400" />
-                Repartition par Promo
-              </h3>
-             
-              <div className="space-y-6">
-                {promoEntries.map(([promo, count], idx) => (
-                  <div key={promo}>
-                    <div className="flex justify-between items-end mb-2">
-                      <span className={`font-semibold ${darkMode.text.secondary} ${darkMode.transition}`}>{promo}</span>
-                      <span className={`text-sm ${darkMode.text.muted} ${darkMode.transition}`}>{count} interactions</span>
+            <div className="px-3.5 py-3 space-y-2.5">
+              {trends.length > 0 ? trends.map((item, idx) => (
+                <div key={idx} className="flex items-center gap-2.5 group text-[12.5px]">
+                  <span className="w-6 text-center font-num text-[11px] text-ink-3">#{idx + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between mb-1">
+                      <span className="text-ink truncate">{item.topic}</span>
+                      <span className="font-num text-[11px] font-semibold text-ink-3 shrink-0">{item.count}×</span>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <div className={`flex-1 ${darkMode.bg.input} rounded-full h-4 overflow-hidden ${darkMode.transition}`}>
-                        <div 
-                          className={`h-4 rounded-full ${colors[idx % colors.length]}`} 
-                          style={{ width: `${totalInteractions > 0 ? (count / totalInteractions) * 100 : 0}%` }}
-                        ></div>
-                      </div>
-                      <span className={`text-xs font-bold ${darkMode.text.muted} w-8 text-right ${darkMode.transition}`}>
-                        {totalInteractions > 0 ? Math.round((count / totalInteractions) * 100) : 0}%
-                      </span>
+                    <div className="w-full bg-surface-2 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className="bg-accent h-1.5 rounded-full"
+                        style={{ width: `${Math.min(100, (item.count / (trends[0]?.count || 1)) * 100)}%` }}
+                      ></div>
                     </div>
                   </div>
-                ))}
-              </div>
-             
-              {promoEntries.length > 0 && (
-                <div className={`mt-8 p-4 ${darkMode.bg.secondary} rounded-xl ${darkMode.border.light} ${darkMode.transition}`}>
-                  <p className={`text-sm ${darkMode.text.secondary} ${darkMode.transition}`}>
-                    <strong className={darkMode.text.primary}>Analyse :</strong> La <strong>{promoEntries[0][0]}</strong> genere {Math.round((promoEntries[0][1] / totalInteractions) * 100)}% du trafic total.
-                  </p>
                 </div>
+              )) : (
+                <p className="text-[12px] text-ink-3 text-center py-6">Aucune donnee disponible</p>
               )}
             </div>
           </div>
 
-          {/* Activité des 7 derniers jours */}
-          <div className={`${darkMode.card} rounded-2xl p-6 shadow-sm mt-8`}>
-            <h3 className={`font-bold ${darkMode.text.secondary} mb-6 flex items-center gap-2 ${darkMode.transition}`}>
-              <Activity size={20} className="text-blue-500 dark:text-blue-400" />
-              Activité (7 derniers jours)
-            </h3>
-            <div className="flex items-end justify-between gap-2">
-              {activity.map((day, idx) => (
-                <div key={idx} className="flex-1 flex flex-col items-center gap-1">
-                  <span className={`text-xs font-bold ${darkMode.text.secondary} ${darkMode.transition}`}>{day.count}</span>
-                  <div className="w-full flex items-end justify-center" style={{ height: '120px' }}>
-                    <div
-                      className="w-full max-w-[40px] bg-indigo-500 dark:bg-indigo-400 rounded-t-md"
-                      style={{ height: `${Math.max(2, (day.count / maxActivity) * 100)}%` }}
-                    ></div>
+          <div className="border border-hairline rounded-[10px] bg-surface overflow-hidden">
+            <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline">
+              <span className="flex items-center gap-2 text-[12.5px] font-bold text-ink">
+                <PieChart size={15} className="text-accent" />
+                Repartition par Promo
+              </span>
+            </div>
+            <div className="px-3.5 py-3 space-y-3">
+              {promoEntries.map(([promo, count], idx) => (
+                <div key={promo}>
+                  <div className="flex justify-between items-end mb-1.5">
+                    <span className="text-[12.5px] font-semibold text-ink">{promo}</span>
+                    <span className="font-num text-[11px] text-ink-3">{count} interactions</span>
                   </div>
-                  <span className={`text-[10px] ${darkMode.text.muted} ${darkMode.transition}`}>{day.label}</span>
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex-1 bg-surface-2 rounded-full h-2.5 overflow-hidden">
+                      <div
+                        className={`h-2.5 rounded-full ${colors[idx % colors.length]}`}
+                        style={{ width: `${totalInteractions > 0 ? (count / totalInteractions) * 100 : 0}%` }}
+                      ></div>
+                    </div>
+                    <span className="font-num text-[11px] font-semibold text-ink-3 w-8 text-right">
+                      {totalInteractions > 0 ? Math.round((count / totalInteractions) * 100) : 0}%
+                    </span>
+                  </div>
                 </div>
               ))}
+
+              {promoEntries.length > 0 && (
+                <div className="mt-1 rounded-[8px] bg-surface-2 px-3 py-2 text-[12.5px] text-ink-2">
+                  <strong className="text-ink">Analyse :</strong> La <strong>{promoEntries[0][0]}</strong> genere {Math.round((promoEntries[0][1] / totalInteractions) * 100)}% du trafic total.
+                </div>
+              )}
             </div>
+          </div>
+        </div>
+
+        {/* Activité des 7 derniers jours */}
+        <div className="border border-hairline rounded-[10px] bg-surface overflow-hidden mt-3">
+          <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline">
+            <span className="flex items-center gap-2 text-[12.5px] font-bold text-ink">
+              <Activity size={15} className="text-accent" />
+              Activité (7 derniers jours)
+            </span>
+          </div>
+          <div className="px-3.5 py-3 flex items-end justify-between gap-2">
+            {activity.map((day, idx) => (
+              <div key={idx} className="flex-1 flex flex-col items-center gap-1">
+                <span className="font-num text-[11px] font-semibold text-ink">{day.count}</span>
+                <div className="w-full flex items-end justify-center" style={{ height: '110px' }}>
+                  <div
+                    className="w-full max-w-[36px] bg-accent rounded-t-[3px]"
+                    style={{ height: `${Math.max(2, (day.count / maxActivity) * 100)}%` }}
+                  ></div>
+                </div>
+                <span className="text-[10px] text-ink-3">{day.label}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -478,83 +504,78 @@ export function AdminPanel() {
       .filter((b) => b.msg.rag_context_found === false)
       .sort((a, b) => (b.msg.rag_similarity || 0) - (a.msg.rag_similarity || 0));
 
-    const Tile = ({ icon, color, label, value, hint }: { icon: React.ReactNode; color: string; label: string; value: string; hint: string }) => (
-      <div className={`${darkMode.card} p-5 rounded-xl shadow-sm`}>
-        <div className="flex items-center gap-3">
-          <div className={`p-3 rounded-full ${color}`}>{icon}</div>
-          <div>
-            <p className={`text-xs font-bold uppercase ${darkMode.text.muted} ${darkMode.transition}`}>{label}</p>
-            <p className={`text-xl font-bold ${darkMode.text.primary} ${darkMode.transition}`}>{value}</p>
-          </div>
-        </div>
-        <p className={`text-xs mt-2 ${darkMode.text.muted} ${darkMode.transition}`}>{hint}</p>
+    const Tile = ({ label, value, hint, accent }: { label: string; value: string; hint: string; accent: 'positive' | 'critical' | 'watch' }) => (
+      <div className="border border-hairline rounded-[10px] bg-surface px-3.5 py-3">
+        <div className={`text-[10.5px] font-bold uppercase tracking-wider text-${accent}`}>{label}</div>
+        <div className="font-num text-[26px] leading-none mt-1.5 text-ink">{value}</div>
+        <div className="text-[11px] text-ink-3 mt-1.5">{hint}</div>
       </div>
     );
 
     return (
-      <div className={`flex-1 overflow-y-auto ${darkMode.bg.secondary} p-8 ${darkMode.transition}`}>
-        <div className="max-w-5xl mx-auto">
-          <div className="mb-8">
-            <h1 className={`text-2xl font-bold ${darkMode.text.primary} ${darkMode.transition}`}>Qualité & feedback</h1>
-            <p className={`${darkMode.text.muted} ${darkMode.transition}`}>Ce que le chatbot réussit, et ce qu'il faut améliorer.</p>
-          </div>
+      <div className="flex-1 overflow-y-auto p-5 max-w-[1180px] mx-auto animate-in fade-in duration-300">
+        <div className="flex items-baseline gap-3">
+          <h1 className="font-display text-base text-ink">Qualité & feedback</h1>
+          <span className="font-num text-[11.5px] text-ink-3">admin / quality · feedback des réponses</span>
+        </div>
+        <p className="text-[12.5px] text-ink-2 mt-1 mb-4">Ce que le chatbot réussit, et ce qu'il faut améliorer.</p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-            <Tile
-              icon={<Gauge size={20} />}
-              color="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400"
-              label="Satisfaction"
-              value={satisfaction === null ? '—' : `${satisfaction}%`}
-              hint={`${rated.length} réponse(s) notée(s)`}
-            />
-            <Tile
-              icon={<ThumbsDown size={20} />}
-              color="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400"
-              label="Réponses 👎"
-              value={`${negatives.length}`}
-              hint="à relire"
-            />
-            <Tile
-              icon={<HelpCircle size={20} />}
-              color="bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400"
-              label="Sans contexte"
-              value={`${noContext.length}`}
-              hint="trous de connaissance"
-            />
-          </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-3">
+          <Tile
+            accent="positive"
+            label="Satisfaction"
+            value={satisfaction === null ? '—' : `${satisfaction}%`}
+            hint={`${rated.length} réponse(s) notée(s)`}
+          />
+          <Tile
+            accent="critical"
+            label="Réponses 👎"
+            value={`${negatives.length}`}
+            hint="à relire"
+          />
+          <Tile
+            accent="watch"
+            label="Sans contexte"
+            value={`${noContext.length}`}
+            hint="trous de connaissance"
+          />
+        </div>
 
-          <div className={`${darkMode.card} rounded-2xl shadow-sm mb-8`}>
-            <div className={`p-4 border-b ${darkMode.border.light} font-semibold ${darkMode.text.secondary} flex items-center gap-2 ${darkMode.transition}`}>
-              <ThumbsDown size={16} className="text-red-500" /> Réponses mal notées
-            </div>
-            <div className="p-4 space-y-3">
-              {negatives.length === 0 ? (
-                <p className={`text-sm text-center py-4 ${darkMode.text.muted} ${darkMode.transition}`}>Aucune réponse notée 👎 pour l'instant.</p>
-              ) : negatives.map((b) => (
-                <div key={b.msg.id} className={`p-3 rounded-lg ${darkMode.bg.input} ${darkMode.transition}`}>
-                  <p className={`text-sm font-medium ${darkMode.text.secondary} ${darkMode.transition}`}>❓ {b.question}</p>
-                  <p className={`text-sm mt-1 ${darkMode.text.muted} ${darkMode.transition}`}>💬 {b.msg.content.slice(0, 160)}{b.msg.content.length > 160 ? '…' : ''}</p>
-                </div>
-              ))}
-            </div>
+        <div className="border border-hairline rounded-[10px] bg-surface overflow-hidden mb-3">
+          <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline">
+            <span className="flex items-center gap-2 text-[12.5px] font-bold text-ink">
+              <ThumbsDown size={15} className="text-critical" /> Réponses mal notées
+            </span>
           </div>
+          <div className="px-3.5 py-3 space-y-2">
+            {negatives.length === 0 ? (
+              <p className="text-[12px] text-center py-4 text-ink-3">Aucune réponse notée 👎 pour l'instant.</p>
+            ) : negatives.map((b) => (
+              <div key={b.msg.id} className="rounded-[8px] bg-surface-2 px-3 py-2 text-[12.5px]">
+                <p className="text-ink">❓ {b.question}</p>
+                <p className="mt-1 text-ink-3">💬 {b.msg.content.slice(0, 160)}{b.msg.content.length > 160 ? '…' : ''}</p>
+              </div>
+            ))}
+          </div>
+        </div>
 
-          <div className={`${darkMode.card} rounded-2xl shadow-sm`}>
-            <div className={`p-4 border-b ${darkMode.border.light} font-semibold ${darkMode.text.secondary} flex items-center gap-2 ${darkMode.transition}`}>
-              <HelpCircle size={16} className="text-orange-500" /> Questions sans contexte — docs à ajouter ?
-            </div>
-            <div className="p-4 space-y-2">
-              {noContext.length === 0 ? (
-                <p className={`text-sm text-center py-4 ${darkMode.text.muted} ${darkMode.transition}`}>Aucune question restée sans contexte. 🎉</p>
-              ) : noContext.map((b) => (
-                <div key={b.msg.id} className={`flex items-center justify-between gap-3 p-3 rounded-lg ${darkMode.bg.input} ${darkMode.transition}`}>
-                  <span className={`text-sm ${darkMode.text.secondary} truncate ${darkMode.transition}`}>❓ {b.question}</span>
-                  <span className={`text-xs font-mono px-2 py-1 rounded ${darkMode.bg.card} ${darkMode.text.muted} shrink-0 ${darkMode.transition}`}>
-                    max {b.msg.rag_similarity != null ? b.msg.rag_similarity.toFixed(2) : '—'}
-                  </span>
-                </div>
-              ))}
-            </div>
+        <div className="border border-hairline rounded-[10px] bg-surface overflow-hidden">
+          <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline">
+            <span className="flex items-center gap-2 text-[12.5px] font-bold text-ink">
+              <HelpCircle size={15} className="text-watch" /> Questions sans contexte — docs à ajouter ?
+            </span>
+          </div>
+          <div className="px-3.5 py-3 space-y-2">
+            {noContext.length === 0 ? (
+              <p className="text-[12px] text-center py-4 text-ink-3">Aucune question restée sans contexte. 🎉</p>
+            ) : noContext.map((b) => (
+              <div key={b.msg.id} className="flex items-center justify-between gap-3 rounded-[8px] bg-surface-2 px-3 py-2 text-[12.5px]">
+                <span className="text-ink truncate">❓ {b.question}</span>
+                <span className="font-num text-[10.5px] font-semibold px-1.5 py-0.5 rounded bg-watch-soft text-watch shrink-0">
+                  max {b.msg.rag_similarity != null ? b.msg.rag_similarity.toFixed(2) : '—'}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -579,72 +600,72 @@ export function AdminPanel() {
       .sort((a, b) => b.usageScore - a.usageScore);
 
     return (
-      <div className={`flex-1 overflow-y-auto ${darkMode.bg.secondary} p-8 ${darkMode.transition}`}>
-        <div className="max-w-5xl mx-auto">
-          <div className="mb-8">
-            <h1 className={`text-2xl font-bold ${darkMode.text.primary} ${darkMode.transition}`}>Modération</h1>
-            <p className={`${darkMode.text.muted} ${darkMode.transition}`}>Contournements du garde-fou pédagogique et surveillance de l'usage.</p>
-          </div>
+      <div className="flex-1 overflow-y-auto p-5 max-w-[1180px] mx-auto animate-in fade-in duration-300">
+        <div className="flex items-baseline gap-3">
+          <h1 className="font-display text-base text-ink">Modération</h1>
+          <span className="font-num text-[11.5px] text-ink-3">admin / moderation · garde-fou pédagogique</span>
+        </div>
+        <p className="text-[12.5px] text-ink-2 mt-1 mb-4">Contournements du garde-fou pédagogique et surveillance de l'usage.</p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-            <div className={`${darkMode.card} p-5 rounded-xl shadow-sm flex items-center gap-4`}>
-              <div className="p-3 rounded-full bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400"><ShieldAlert size={20} /></div>
-              <div>
-                <p className={`text-xs font-bold uppercase ${darkMode.text.muted} ${darkMode.transition}`}>Tentatives de contournement</p>
-                <p className={`text-xl font-bold ${darkMode.text.primary} ${darkMode.transition}`}>{attempts.length}</p>
-              </div>
-            </div>
-            <div className={`${darkMode.card} p-5 rounded-xl shadow-sm flex items-center gap-4`}>
-              <div className="p-3 rounded-full bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400"><AlertTriangle size={20} /></div>
-              <div>
-                <p className={`text-xs font-bold uppercase ${darkMode.text.muted} ${darkMode.transition}`}>Utilisateurs à surveiller</p>
-                <p className={`text-xl font-bold ${darkMode.text.primary} ${darkMode.transition}`}>{watchlist.length}</p>
-              </div>
-            </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-3">
+          <div className="border border-hairline rounded-[10px] bg-surface px-3.5 py-3">
+            <div className="text-[10.5px] font-bold uppercase tracking-wider text-critical">Tentatives de contournement</div>
+            <div className="font-num text-[26px] leading-none mt-1.5 text-ink">{attempts.length}</div>
           </div>
+          <div className="border border-hairline rounded-[10px] bg-surface px-3.5 py-3">
+            <div className="text-[10.5px] font-bold uppercase tracking-wider text-watch">Utilisateurs à surveiller</div>
+            <div className="font-num text-[26px] leading-none mt-1.5 text-ink">{watchlist.length}</div>
+          </div>
+        </div>
 
-          <div className={`${darkMode.card} rounded-2xl shadow-sm mb-8`}>
-            <div className={`p-4 border-b ${darkMode.border.light} font-semibold ${darkMode.text.secondary} flex items-center gap-2 ${darkMode.transition}`}>
-              <ShieldAlert size={16} className="text-red-500" /> Demandes suspectes (code / solution direct)
-            </div>
-            <div className="p-4 space-y-3">
-              {attempts.length === 0 ? (
-                <p className={`text-sm text-center py-4 ${darkMode.text.muted} ${darkMode.transition}`}>Aucune tentative détectée. 👍</p>
-              ) : attempts.map((a) => (
-                <div key={a.msg.id} className={`p-3 rounded-lg ${darkMode.bg.input} ${darkMode.transition}`}>
+        <div className="border border-hairline rounded-[10px] bg-surface overflow-hidden mb-3">
+          <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline">
+            <span className="flex items-center gap-2 text-[12.5px] font-bold text-ink">
+              <ShieldAlert size={15} className="text-critical" /> Demandes suspectes (code / solution direct)
+            </span>
+          </div>
+          <div className="px-3.5 py-3 space-y-2">
+            {attempts.length === 0 ? (
+              <p className="text-[12px] text-center py-4 text-ink-3">Aucune tentative détectée. 👍</p>
+            ) : attempts.map((a) => (
+              <div key={a.msg.id} className="flex gap-2.5 rounded-[8px] bg-surface-2 px-3 py-2 text-[12.5px]">
+                <span className="w-[3px] self-stretch rounded-full bg-critical" />
+                <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
-                    <span className={`text-sm font-medium ${darkMode.text.secondary} ${darkMode.transition}`}>{a.user?.name || a.user?.email || 'Utilisateur inconnu'}</span>
-                    <span className={`text-[10px] ${darkMode.text.muted}`}>{a.msg.created_at ? new Date(a.msg.created_at).toLocaleString('fr-FR') : ''}</span>
+                    <span className="font-medium text-ink truncate">{a.user?.name || a.user?.email || 'Utilisateur inconnu'}</span>
+                    <span className="font-num text-[10px] text-ink-3 shrink-0">{a.msg.created_at ? new Date(a.msg.created_at).toLocaleString('fr-FR') : ''}</span>
                   </div>
-                  <p className={`text-sm mt-1 ${darkMode.text.muted} ${darkMode.transition}`}>« {a.msg.content} »</p>
+                  <p className="mt-1 text-ink-3">« {a.msg.content} »</p>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
+        </div>
 
-          <div className={`${darkMode.card} rounded-2xl shadow-sm`}>
-            <div className={`p-4 border-b ${darkMode.border.light} font-semibold ${darkMode.text.secondary} flex items-center gap-2 ${darkMode.transition}`}>
-              <AlertTriangle size={16} className="text-orange-500" /> Usage élevé à surveiller
-            </div>
-            <div className="p-4 space-y-2">
-              {watchlist.length === 0 ? (
-                <p className={`text-sm text-center py-4 ${darkMode.text.muted} ${darkMode.transition}`}>Aucun usage anormal. 👍</p>
-              ) : watchlist.map((u) => {
-                const status = getUsageStatus(u.usageScore);
-                return (
-                  <div key={u.id} className={`flex items-center justify-between gap-3 p-3 rounded-lg ${darkMode.bg.input} ${darkMode.transition}`}>
-                    <div className="min-w-0">
-                      <p className={`text-sm font-medium truncate ${darkMode.text.secondary} ${darkMode.transition}`}>{u.name || u.email}</p>
-                      <p className={`text-xs ${darkMode.text.muted}`}>{u.promo ? `Promo ${u.promo}` : 'Promo inconnue'} · {u.dailyMessageCount} msg aujourd'hui</p>
-                    </div>
-                    <div className={`flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-bold ${status.color} ${status.darkColor} shrink-0`}>
-                      {status.icon}
-                      {status.label} ({u.usageScore}%)
-                    </div>
+        <div className="border border-hairline rounded-[10px] bg-surface overflow-hidden">
+          <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline">
+            <span className="flex items-center gap-2 text-[12.5px] font-bold text-ink">
+              <AlertTriangle size={15} className="text-watch" /> Usage élevé à surveiller
+            </span>
+          </div>
+          <div className="px-3.5 py-3 space-y-2">
+            {watchlist.length === 0 ? (
+              <p className="text-[12px] text-center py-4 text-ink-3">Aucun usage anormal. 👍</p>
+            ) : watchlist.map((u) => {
+              const status = getUsageStatus(u.usageScore);
+              return (
+                <div key={u.id} className="flex items-center justify-between gap-3 rounded-[8px] bg-surface-2 px-3 py-2 text-[12.5px]">
+                  <div className="min-w-0">
+                    <p className="font-medium truncate text-ink">{u.name || u.email}</p>
+                    <p className="font-num text-[11px] text-ink-3">{u.promo ? `Promo ${u.promo}` : 'Promo inconnue'} · {u.dailyMessageCount} msg aujourd'hui</p>
                   </div>
-                );
-              })}
-            </div>
+                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded border text-[11px] font-bold ${status.color} ${status.darkColor} shrink-0`}>
+                    {status.icon}
+                    {status.label} ({u.usageScore}%)
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -661,7 +682,7 @@ export function AdminPanel() {
     if (loading) {
       return (
         <div className="flex-1 flex items-center justify-center">
-          <p className={`${darkMode.text.muted} ${darkMode.transition}`}>Chargement...</p>
+          <p className="text-[12.5px] text-ink-3">Chargement...</p>
         </div>
       );
     }
@@ -669,7 +690,7 @@ export function AdminPanel() {
     if (!selectedUser) {
       return (
         <div className="flex-1 flex items-center justify-center">
-          <p className={`${darkMode.text.muted} ${darkMode.transition}`}>Aucun utilisateur selectionne</p>
+          <p className="text-[12.5px] text-ink-3">Aucun utilisateur selectionne</p>
         </div>
       );
     }
@@ -700,56 +721,54 @@ export function AdminPanel() {
 
     return (
       <div className="flex flex-1 h-full overflow-hidden animate-in fade-in duration-300">
-        <aside className={`w-80 ${darkMode.bg.card} border-r ${darkMode.border.default} flex flex-col z-10 shadow-sm ${darkMode.transition}`}>
-          <div className={`p-4 border-b ${darkMode.border.light}`}>
+        <aside className="w-72 bg-surface border-r border-hairline flex flex-col z-10">
+          <div className="p-3 border-b border-hairline">
             <div className="relative">
-              <Search className={`absolute left-3 top-1/2 -translate-y-1/2 ${darkMode.text.muted}`} size={16} />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-3" size={15} />
               <input
                 type="text"
                 placeholder="Rechercher..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className={`w-full ${darkMode.bg.input} border-none rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 outline-none ${darkMode.text.input} ${darkMode.text.placeholder} ${darkMode.transition}`}
+                className="w-full bg-surface-2 border border-hairline rounded-[8px] pl-9 pr-3 py-2 text-[13px] text-ink placeholder:text-ink-3 outline-none focus:border-accent transition-colors"
               />
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto p-2 space-y-1">
+          <div className="flex-1 overflow-y-auto p-1.5 space-y-0.5">
             {filteredUsers.map(user => {
               const status = getUsageStatus(user.usageScore);
               return (
                 <button
                   key={user.id}
                   onClick={() => setSelectedUserId(user.id || null)}
-                  className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left group ${
-                    selectedUserId === user.id 
-                      ? 'bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800' 
-                      : `${darkMode.bg.hover} border border-transparent`
+                  className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[8px] transition-colors text-left group ${
+                    selectedUserId === user.id
+                      ? 'bg-accent-soft border border-accent'
+                      : 'hover:bg-surface-2 border border-transparent'
                   }`}
                 >
                   <div className="relative">
-                    <img src={getAvatarUrl(user)} alt={user.name || ''} className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-600" />
-                    <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white dark:border-slate-800 ${
-                      status.status === 'modere' ? 'bg-emerald-500' :
-                      status.status === 'moyenne' ? 'bg-blue-500' :
-                      status.status === 'critique' ? 'bg-orange-500' : 'bg-red-500'
+                    <img src={getAvatarUrl(user)} alt={user.name || ''} className="w-8 h-8 rounded-full bg-surface-2" />
+                    <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-surface ${
+                      status.status === 'modere' ? 'bg-positive' :
+                      status.status === 'moyenne' ? 'bg-accent' :
+                      status.status === 'critique' ? 'bg-watch' : 'bg-critical'
                     }`}></span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className={`text-sm font-semibold truncate ${darkMode.transition} ${
-                      selectedUserId === user.id 
-                        ? 'text-indigo-900 dark:text-indigo-100' 
-                        : darkMode.text.secondary
+                    <h3 className={`text-[12.5px] font-semibold truncate ${
+                      selectedUserId === user.id ? 'text-accent-ink' : 'text-ink'
                     }`}>
                       {user.name || user.email}
                     </h3>
-                    <p className={`text-xs truncate ${darkMode.text.muted} ${darkMode.transition}`}>
+                    <p className="text-[11px] truncate text-ink-3">
                       {user.promo ? `Promo ${user.promo}` : 'Promo inconnue'}
                     </p>
                   </div>
-                  <div className={`text-xs font-bold px-2 py-1 rounded ${darkMode.transition} ${
-                    selectedUserId === user.id 
-                      ? 'bg-white dark:bg-indigo-800 text-indigo-700 dark:text-indigo-200' 
-                      : `${darkMode.bg.input} ${darkMode.text.muted}`
+                  <div className={`font-num text-[10.5px] font-semibold px-1.5 py-0.5 rounded ${
+                    selectedUserId === user.id
+                      ? 'bg-surface text-accent-ink'
+                      : 'bg-surface-2 text-ink-3'
                   }`}>
                     {user.usageScore}%
                   </div>
@@ -759,51 +778,53 @@ export function AdminPanel() {
           </div>
         </aside>
 
-        <main className={`flex-1 flex flex-col min-w-0 bg-slate-50/50 dark:bg-slate-900 ${darkMode.transition}`}>
-          <header className={`${darkMode.bg.card} border-b ${darkMode.border.default} px-8 py-6 flex items-center justify-between shadow-sm ${darkMode.transition}`}>
-            <div className="flex items-center gap-4">
-              <img src={getAvatarUrl(selectedUser)} alt={selectedUser.name || ''} className="w-16 h-16 rounded-full border-2 border-white dark:border-slate-700 shadow" />
+        <main className="flex-1 flex flex-col min-w-0 bg-ground">
+          <header className="bg-surface border-b border-hairline px-5 py-3.5 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <img src={getAvatarUrl(selectedUser)} alt={selectedUser.name || ''} className="w-11 h-11 rounded-full border border-hairline" />
               <div>
-                <h2 className={`text-xl font-bold ${darkMode.text.primary} ${darkMode.transition}`}>{selectedUser.name || selectedUser.email}</h2>
-                <div className={`flex items-center gap-2 text-sm ${darkMode.text.muted} ${darkMode.transition}`}>
-                  <span>{selectedUser.promo ? `Promo ${selectedUser.promo}` : 'Promo inconnue'}</span> • <span>{selectedUser.email}</span>
+                <h2 className="font-display text-base text-ink">{selectedUser.name || selectedUser.email}</h2>
+                <div className="flex items-center gap-2 font-num text-[11.5px] text-ink-3">
+                  <span>{selectedUser.promo ? `Promo ${selectedUser.promo}` : 'Promo inconnue'}</span> · <span>{selectedUser.email}</span>
                 </div>
               </div>
             </div>
-            <div className={`flex items-center gap-2 px-3 py-1 rounded-full border ${darkMode.transition} ${userStatus.color} ${userStatus.darkColor}`}>
+            <div className={`flex items-center gap-1.5 px-2 py-1 rounded border text-[11px] font-bold ${userStatus.color} ${userStatus.darkColor}`}>
               {userStatus.icon}
-              <span className="font-bold text-sm">{userStatus.label}</span>
-              <span className="text-sm ml-1 opacity-75">({selectedUser.usageScore}%)</span>
+              <span>{userStatus.label}</span>
+              <span className="ml-1 opacity-75">({selectedUser.usageScore}%)</span>
             </div>
           </header>
 
-          <div className="flex-1 overflow-y-auto p-8">
-            <div className={`${darkMode.card} rounded-2xl shadow-sm flex flex-col h-full`}>
-              <div className={`p-4 border-b ${darkMode.border.light} bg-slate-50/30 dark:bg-slate-900/50 font-semibold ${darkMode.text.secondary} ${darkMode.transition}`}>Historique des messages</div>
-              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          <div className="flex-1 overflow-y-auto p-5">
+            <div className="border border-hairline rounded-[10px] bg-surface overflow-hidden flex flex-col h-full">
+              <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline">
+                <span className="text-[12.5px] font-bold text-ink">Historique des messages</span>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {userMessages.length > 0 ? userMessages.map((msg, idx) => {
                   const isUser = !!msg.user_id;
                   const timestamp = msg.created_at ? new Date(msg.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
-                  
+
                   return (
                     <div key={idx} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[70%] p-3 rounded-xl text-sm ${darkMode.transition} ${
-                        isUser 
-                          ? 'bg-indigo-600 dark:bg-indigo-700 text-white rounded-tr-none' 
-                          : `${darkMode.bg.input} ${darkMode.text.secondary} rounded-tl-none`
+                      <div className={`max-w-[70%] px-3 py-2 rounded-[8px] text-[12.5px] ${
+                        isUser
+                          ? 'bg-accent text-white rounded-tr-none'
+                          : 'bg-surface-2 text-ink rounded-tl-none'
                       }`}>
                         <div className="mb-1 text-[10px] opacity-70 uppercase font-bold">
                           {isUser ? (selectedUser.name || selectedUser.email) : 'Epibot'}
                         </div>
                         {msg.content}
                         {timestamp && (
-                          <div className="mt-1 text-[10px] opacity-60 text-right">{timestamp}</div>
+                          <div className="mt-1 font-num text-[10px] opacity-60 text-right">{timestamp}</div>
                         )}
                       </div>
                     </div>
                   );
                 }) : (
-                  <p className={`${darkMode.text.muted} text-center py-8 ${darkMode.transition}`}>Aucun message dans l'historique</p>
+                  <p className="text-[12px] text-ink-3 text-center py-8">Aucun message dans l'historique</p>
                 )}
               </div>
             </div>
@@ -814,14 +835,14 @@ export function AdminPanel() {
   };
 
   return (
-    <div className={`flex h-screen font-sans ${darkMode.bg.main} ${darkMode.text.primary} ${darkMode.transition}`}>
-      <nav className="w-20 bg-indigo-900 dark:bg-indigo-950 flex flex-col items-center py-6 gap-8 z-50 justify-between transition-colors">
-        <div className="flex flex-col items-center gap-8">
-          <div className="w-10 h-10 bg-white/10 dark:bg-white/20 rounded-xl flex items-center justify-center text-white mb-4">
-            <img src="/epis_mais.png" alt="Epibot" className="w-6 h-6" />
+    <div className={`admin-console ${theme === 'light' ? 'console-light' : ''} flex h-screen font-sans bg-ground text-ink transition-colors`}>
+      <nav className="w-[62px] bg-rail border-r border-hairline flex flex-col items-center py-3 z-50 justify-between">
+        <div className="flex flex-col items-center gap-1 w-full">
+          <div className="w-9 h-9 rounded-lg bg-accent-soft text-accent flex items-center justify-center mb-3">
+            <img src="/epis_mais.png" alt="Epibot" className="w-5 h-5" />
           </div>
-         
-          <div className="flex flex-col gap-4 w-full px-3">
+
+          <div className="flex flex-col gap-1 w-full px-2.5">
             <NavButton
               active={currentView === 'dashboard'}
               onClick={() => setCurrentView('dashboard')}
@@ -861,27 +882,25 @@ export function AdminPanel() {
           </div>
         </div>
         
-        <div className="flex flex-col gap-2 w-full px-3">
+        <div className="flex flex-col gap-1 w-full px-2.5 pb-1">
           <button
             onClick={toggleTheme}
-            className="w-full aspect-square rounded-xl flex flex-col items-center justify-center gap-1 transition-all duration-200 text-indigo-200 hover:bg-indigo-800/30 hover:text-white"
+            className="w-full h-10 rounded-lg flex items-center justify-center transition-colors text-ink-3 hover:bg-surface-2 hover:text-ink"
             title={theme === 'light' ? 'Mode sombre' : 'Mode clair'}
           >
-            {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-            <span className="text-[10px] font-medium">{theme === 'light' ? 'Sombre' : 'Clair'}</span>
+            {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
           </button>
           <button
             onClick={signOut}
-            className="w-full aspect-square rounded-xl flex flex-col items-center justify-center gap-1 transition-all duration-200 text-indigo-200 hover:bg-red-500/20 hover:text-red-200"
+            className="w-full h-10 rounded-lg flex items-center justify-center transition-colors text-ink-3 hover:bg-critical-soft hover:text-critical"
             title="Se deconnecter"
           >
-            <LogOut size={20} />
-            <span className="text-[10px] font-medium">Deconnexion</span>
+            <LogOut size={18} />
           </button>
         </div>
       </nav>
 
-      <div className={`flex-1 flex flex-col overflow-hidden relative ${darkMode.container}`}>
+      <div className="flex-1 flex flex-col overflow-hidden relative bg-ground">
         {currentView === 'dashboard' && <DashboardHome />}
         {currentView === 'students' && <StudentsView />}
         {currentView === 'analytics' && <AnalyticsView />}
@@ -946,96 +965,93 @@ const DocumentsView = () => {
   const totalChunks = docs.reduce((sum, d) => sum + d.chunks, 0);
 
   return (
-    <div className={`flex-1 overflow-y-auto ${darkMode.bg.secondary} p-8 ${darkMode.transition}`}>
-      <div className="max-w-5xl mx-auto">
-        <div className="mb-8 flex items-center justify-between gap-4">
-          <div>
-            <h1 className={`text-2xl font-bold ${darkMode.text.primary} ${darkMode.transition}`}>Base de connaissances</h1>
-            <p className={`${darkMode.text.muted} ${darkMode.transition}`}>
-              {docs.length} document(s) · {totalChunks} passage(s) indexé(s)
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={load}
-              className={`p-2 rounded-lg ${darkMode.bg.input} ${darkMode.text.secondary} hover:opacity-80 ${darkMode.transition}`}
-              title="Rafraîchir"
-            >
-              <RefreshCw size={18} />
-            </button>
-            <label
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium cursor-pointer transition-colors ${uploading ? 'opacity-60 pointer-events-none' : ''}`}
-            >
-              <Upload size={16} />
-              {uploading ? 'Ingestion…' : 'Ajouter un document'}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,.txt,.md"
-                className="hidden"
-                onChange={handleUpload}
-              />
-            </label>
-          </div>
+    <div className="flex-1 overflow-y-auto p-5 max-w-[1180px] mx-auto animate-in fade-in duration-300">
+      <div className="flex items-baseline justify-between gap-3 flex-wrap">
+        <div className="flex items-baseline gap-3">
+          <h1 className="font-display text-base text-ink">Base de connaissances</h1>
+          <span className="font-num text-[11.5px] text-ink-3">admin / documents · {docs.length} doc · {totalChunks} passages</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={load}
+            className="p-2 rounded-[8px] bg-surface-2 border border-hairline text-ink-2 hover:opacity-80 transition-colors"
+            title="Rafraîchir"
+          >
+            <RefreshCw size={16} />
+          </button>
+          <label
+            className={`flex items-center gap-2 px-3 py-2 rounded-[8px] bg-accent hover:bg-accent-ink text-white text-[13px] font-semibold cursor-pointer transition-colors ${uploading ? 'opacity-60 pointer-events-none' : ''}`}
+          >
+            <Upload size={15} />
+            {uploading ? 'Ingestion…' : 'Ajouter un document'}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.txt,.md"
+              className="hidden"
+              onChange={handleUpload}
+            />
+          </label>
+        </div>
+      </div>
+      <p className="text-[12.5px] text-ink-2 mt-1 mb-4">{docs.length} document(s) · {totalChunks} passage(s) indexé(s)</p>
+
+      {error && (
+        <div className="mb-3 rounded-[10px] border border-critical bg-critical-soft px-3.5 py-2.5 text-[12.5px] text-critical">
+          {error}
+        </div>
+      )}
+
+      <div className="border border-hairline rounded-[10px] bg-surface overflow-hidden">
+        <div className="grid grid-cols-12 px-3.5 py-2.5 border-b border-hairline text-[10.5px] font-bold uppercase tracking-wider text-ink-3">
+          <div className="col-span-6">Document</div>
+          <div className="col-span-2 text-center">Passages</div>
+          <div className="col-span-3">Ajouté le</div>
+          <div className="col-span-1"></div>
         </div>
 
-        {error && (
-          <div className="mb-6 rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-700 dark:text-red-300">
-            {error}
+        {loading ? (
+          <div className="px-3.5 py-8 text-center text-[12px] text-ink-3">Chargement…</div>
+        ) : docs.length === 0 ? (
+          <div className="px-3.5 py-8 text-center text-[12px] text-ink-3">
+            Aucun document. Clique sur « Ajouter un document » pour enrichir le chatbot.
           </div>
-        )}
-
-        <div className={`${darkMode.card} rounded-2xl shadow-sm overflow-hidden`}>
-          <div className={`grid grid-cols-12 px-6 py-3 border-b ${darkMode.border.light} text-xs font-bold uppercase ${darkMode.text.muted} ${darkMode.transition}`}>
-            <div className="col-span-6">Document</div>
-            <div className="col-span-2 text-center">Passages</div>
-            <div className="col-span-3">Ajouté le</div>
-            <div className="col-span-1"></div>
-          </div>
-
-          {loading ? (
-            <div className={`px-6 py-10 text-center ${darkMode.text.muted} ${darkMode.transition}`}>Chargement…</div>
-          ) : docs.length === 0 ? (
-            <div className={`px-6 py-10 text-center ${darkMode.text.muted} ${darkMode.transition}`}>
-              Aucun document. Clique sur « Ajouter un document » pour enrichir le chatbot.
-            </div>
-          ) : (
-            docs.map((doc) => (
-              <div
-                key={doc.id}
-                className={`grid grid-cols-12 items-center px-6 py-4 border-b ${darkMode.border.light} ${darkMode.bg.hover} ${darkMode.transition}`}
-              >
-                <div className="col-span-6 flex items-center gap-3 min-w-0">
-                  <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
-                    <FileText size={18} />
-                  </div>
-                  <div className="min-w-0">
-                    <div className={`font-medium truncate ${darkMode.text.primary} ${darkMode.transition}`}>{doc.titre}</div>
-                    <div className={`text-xs truncate ${darkMode.text.muted}`}>{doc.source}</div>
-                  </div>
+        ) : (
+          docs.map((doc) => (
+            <div
+              key={doc.id}
+              className="grid grid-cols-12 items-center px-3.5 py-2.5 border-b border-hairline last:border-b-0 hover:bg-surface-2 transition-colors text-[12.5px]"
+            >
+              <div className="col-span-6 flex items-center gap-2.5 min-w-0">
+                <div className="p-1.5 rounded-[6px] bg-accent-soft text-accent">
+                  <FileText size={15} />
                 </div>
-                <div className={`col-span-2 text-center font-semibold ${darkMode.text.secondary} ${darkMode.transition}`}>{doc.chunks}</div>
-                <div className={`col-span-3 text-sm ${darkMode.text.muted} ${darkMode.transition}`}>
-                  {doc.created_at ? new Date(doc.created_at).toLocaleDateString('fr-FR') : '—'}
-                </div>
-                <div className="col-span-1 flex justify-end">
-                  <button
-                    onClick={() => handleDelete(doc.id, doc.titre)}
-                    className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                    title="Supprimer"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                <div className="min-w-0">
+                  <div className="font-medium truncate text-ink">{doc.titre}</div>
+                  <div className="font-num text-[11px] truncate text-ink-3">{doc.source}</div>
                 </div>
               </div>
-            ))
-          )}
-        </div>
-
-        <p className={`mt-4 text-xs ${darkMode.text.muted} ${darkMode.transition}`}>
-          Formats acceptés : PDF, .txt, .md. Un fichier de même nom remplace l'ancien.
-        </p>
+              <div className="col-span-2 text-center font-num font-semibold text-ink-2">{doc.chunks}</div>
+              <div className="col-span-3 font-num text-[11.5px] text-ink-3">
+                {doc.created_at ? new Date(doc.created_at).toLocaleDateString('fr-FR') : '—'}
+              </div>
+              <div className="col-span-1 flex justify-end">
+                <button
+                  onClick={() => handleDelete(doc.id, doc.titre)}
+                  className="p-1.5 rounded-[6px] text-ink-3 hover:text-critical hover:bg-critical-soft transition-colors"
+                  title="Supprimer"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
+
+      <p className="mt-3 text-[11px] text-ink-3">
+        Formats acceptés : PDF, .txt, .md. Un fichier de même nom remplace l'ancien.
+      </p>
     </div>
   );
 };
@@ -1044,15 +1060,15 @@ const NavButton = ({ active, onClick, icon, label }: { active: boolean; onClick:
   <button
     onClick={onClick}
     className={`
-      w-full aspect-square rounded-xl flex flex-col items-center justify-center gap-1 transition-all duration-200
-      ${active 
-        ? `${darkMode.bg.card} text-indigo-900 dark:text-indigo-100 shadow-lg translate-x-1` 
-        : 'text-indigo-200 dark:text-indigo-300 hover:bg-white/10 dark:hover:bg-white/20 hover:text-white'
+      relative w-full h-10 rounded-lg flex items-center justify-center transition-colors
+      ${active
+        ? 'bg-surface-2 text-accent before:content-[""] before:absolute before:-left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:rounded-full before:bg-accent'
+        : 'text-ink-3 hover:bg-surface-2 hover:text-ink'
       }
     `}
     title={label}
+    aria-label={label}
   >
     {icon}
-    <span className="text-[10px] font-medium">{label}</span>
   </button>
 );

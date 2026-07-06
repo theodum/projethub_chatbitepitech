@@ -32,11 +32,27 @@ export async function getUserConversations(userId: string): Promise<Conversation
 /**
  * Crée une conversation. Le créateur est inscrit comme membre 'owner'
  * automatiquement par un trigger DB (private.add_owner_on_conversation).
+ *
+ * On récupère l'id depuis la session courante (getUser rafraîchit le token
+ * au besoin) plutôt que de se fier à un `userId` venant d'un state React
+ * potentiellement périmé : la policy RLS exige `user_id = auth.uid()`, donc
+ * un token expiré provoquerait un 403 "violates row-level security policy".
  */
 export async function createConversation(userId: string, title: string): Promise<Conversation> {
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  const currentId = authData?.user?.id;
+
+  if (authError || !currentId) {
+    throw new Error('Session expirée. Reconnectez-vous pour créer une conversation.');
+  }
+  // Cohérence : on écrit toujours l'id de la session authentifiée.
+  if (userId && userId !== currentId) {
+    console.warn('createConversation: userId fourni différent de la session, on utilise la session.');
+  }
+
   const { data, error } = await supabase
     .from('conversations')
-    .insert([{ user_id: userId, title }])
+    .insert([{ user_id: currentId, title }])
     .select()
     .single();
 
