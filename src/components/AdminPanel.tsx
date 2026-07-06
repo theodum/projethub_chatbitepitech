@@ -29,6 +29,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../hooks/useTheme';
 import { listDocuments, uploadDocument, deleteDocument } from '../services/documentsService';
 import type { DocumentItem } from '../services/documentsService';
+import { getPasteEvents } from '../services/extensionService';
+import type { PasteEvent } from '../services/extensionService';
 import type { AdminAlert, Message, User } from '../types';
 
 type ViewState = 'dashboard' | 'students' | 'analytics' | 'documents' | 'quality' | 'moderation';
@@ -96,6 +98,7 @@ export function AdminPanel() {
   const [users, setUsers] = useState<UserWithStats[]>([]);
   const [messages, setMessages] = useState<MessageWithUser[]>([]);
   const [alerts, setAlerts] = useState<AdminAlert[]>([]);
+  const [pasteEvents, setPasteEvents] = useState<PasteEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -160,6 +163,12 @@ export function AdminPanel() {
         setAlerts(recentAlerts);
       } catch (alertError) {
         console.error('Erreur lors des alertes admin:', alertError);
+      }
+
+      try {
+        setPasteEvents(await getPasteEvents(50));
+      } catch (pasteError) {
+        console.error('Erreur lors du chargement des collages:', pasteError);
       }
       
       if (usersWithStats.length > 0 && !selectedUserId) {
@@ -607,10 +616,14 @@ export function AdminPanel() {
         </div>
         <p className="text-[12.5px] text-ink-2 mt-1 mb-4">Contournements du garde-fou pédagogique et surveillance de l'usage.</p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-3">
           <div className="border border-hairline rounded-[10px] bg-surface px-3.5 py-3">
             <div className="text-[10.5px] font-bold uppercase tracking-wider text-critical">Tentatives de contournement</div>
             <div className="font-num text-[26px] leading-none mt-1.5 text-ink">{attempts.length}</div>
+          </div>
+          <div className="border border-hairline rounded-[10px] bg-surface px-3.5 py-3">
+            <div className="text-[10.5px] font-bold uppercase tracking-wider text-critical">Collages de code (VS Code)</div>
+            <div className="font-num text-[26px] leading-none mt-1.5 text-ink">{pasteEvents.length}</div>
           </div>
           <div className="border border-hairline rounded-[10px] bg-surface px-3.5 py-3">
             <div className="text-[10.5px] font-bold uppercase tracking-wider text-watch">Utilisateurs à surveiller</div>
@@ -636,6 +649,53 @@ export function AdminPanel() {
                     <span className="font-num text-[10px] text-ink-3 shrink-0">{a.msg.created_at ? new Date(a.msg.created_at).toLocaleString('fr-FR') : ''}</span>
                   </div>
                   <p className="mt-1 text-ink-3">« {a.msg.content} »</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Collages massifs détectés par l'extension VS Code */}
+        <div className="border border-hairline rounded-[10px] bg-surface overflow-hidden mb-3">
+          <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline">
+            <span className="flex items-center gap-2 text-[12.5px] font-bold text-ink">
+              <FileText size={15} className="text-critical" /> Collages de code suspects (VS Code)
+            </span>
+            <span className="font-num text-[10.5px] font-semibold px-1.5 py-0.5 rounded bg-critical-soft text-critical">
+              {pasteEvents.length}
+            </span>
+          </div>
+          <div className="px-3.5 py-3 space-y-2">
+            {pasteEvents.length === 0 ? (
+              <p className="text-[12px] text-center py-4 text-ink-3">Aucun collage massif détecté. 👍</p>
+            ) : pasteEvents.map((p) => (
+              <div key={p.id} className="flex gap-2.5 rounded-[8px] bg-surface-2 px-3 py-2 text-[12.5px]">
+                <span className="w-[3px] self-stretch rounded-full bg-critical" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-ink truncate">
+                      {p.user?.name || p.user?.email || 'Utilisateur inconnu'}
+                    </span>
+                    <span className="font-num text-[10px] text-ink-3 shrink-0">
+                      {new Date(p.created_at).toLocaleString('fr-FR')}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1 font-num text-[11px] text-ink-3">
+                    <span className="px-1.5 py-0.5 rounded bg-critical-soft text-critical font-semibold">
+                      {p.line_count} lignes
+                    </span>
+                    {p.language && (
+                      <span className="px-1.5 py-0.5 rounded bg-accent-soft text-accent-ink font-semibold uppercase">
+                        {p.language}
+                      </span>
+                    )}
+                    {p.file_name && <span className="truncate">{p.file_name}</span>}
+                  </div>
+                  {p.excerpt && (
+                    <pre className="mt-1.5 text-[11px] text-ink-3 bg-ground rounded px-2 py-1.5 overflow-x-auto whitespace-pre-wrap max-h-24">
+                      {p.excerpt}
+                    </pre>
+                  )}
                 </div>
               </div>
             ))}

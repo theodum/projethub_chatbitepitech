@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from api.routes import router
 from api.admin import router as admin_router
+from api.moderation import router as moderation_router
 from config import PORT, HOST, GOOGLE_API_KEY
 
 # Créer l'application FastAPI
@@ -50,6 +51,7 @@ app.add_middleware(
 # Inclure les routes
 app.include_router(router)
 app.include_router(admin_router)
+app.include_router(moderation_router)
 
 
 @app.on_event("startup")

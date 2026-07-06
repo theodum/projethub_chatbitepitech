@@ -1,0 +1,55 @@
+{
+  "name": "epibot-guard",
+  "displayName": "Epibot Guard",
+  "description": "Détecte les collages massifs de code et les signale à Epibot (garde-fou pédagogique Epitech).",
+  "version": "0.1.0",
+  "publisher": "epitech",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "epibotGuard.setToken",
+        "title": "Epibot : Configurer le token"
+      },
+      {
+        "command": "epibotGuard.status",
+        "title": "Epibot : État de la surveillance"
+      }
+    ],
+    "configuration": {
+      "title": "Epibot Guard",
+      "properties": {
+        "epibotGuard.apiUrl": {
+          "type": "string",
+          "default": "http://localhost:3001",
+          "description": "URL du backend Epibot (ex: http://localhost:3001)."
+        },
+        "epibotGuard.pasteLineThreshold": {
+          "type": "number",
+          "default": 10,
+          "description": "Nombre de lignes ajoutées d'un coup à partir duquel un collage est signalé."
+        },
+        "epibotGuard.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Active la surveillance des collages."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20.x",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.4.0"
+  }
+}

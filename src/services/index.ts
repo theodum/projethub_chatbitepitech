@@ -10,3 +10,4 @@ export * from './adminAlertsService';
 export * from './conversationsService';
 export * from './invitesService';
 export * from './documentsService';
+export * from './extensionService';

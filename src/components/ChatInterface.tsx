@@ -6,6 +6,7 @@ import { sendMessageStream } from '../services/aiService';
 import { useAuth } from '../contexts/AuthContext';
 import { createConversation, deleteConversation, getMessagesByConversation, getUserConversations, getConversationMembers } from '../services/conversationsService';
 import { acceptInvite } from '../services/invitesService';
+import { generateExtensionToken } from '../services/extensionService';
 import { useConversationRealtime } from '../hooks/useConversationRealtime';
 import { ShareConversationModal } from './ShareConversationModal';
 import type { Message as DBMessage, ConversationMember } from '../types';
@@ -191,6 +192,9 @@ export function ChatInterface() {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [activeMembers, setActiveMembers] = useState<ConversationMember[]>([]);
+  const [extToken, setExtToken] = useState<string | null>(null);
+  const [extTokenLoading, setExtTokenLoading] = useState(false);
+  const [extTokenCopied, setExtTokenCopied] = useState(false);
   const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -538,6 +542,27 @@ export function ChatInterface() {
     if (value.trim()) {
       setAvatarPreview(value.trim());
     }
+  };
+
+  const handleGenerateExtToken = async () => {
+    setExtTokenLoading(true);
+    setExtTokenCopied(false);
+    try {
+      const token = await generateExtensionToken('VS Code');
+      setExtToken(token);
+    } catch (error) {
+      console.error('Erreur génération token extension:', error);
+      alert(error instanceof Error ? error.message : 'Impossible de générer le token.');
+    } finally {
+      setExtTokenLoading(false);
+    }
+  };
+
+  const handleCopyExtToken = async () => {
+    if (!extToken) return;
+    await navigator.clipboard.writeText(extToken);
+    setExtTokenCopied(true);
+    setTimeout(() => setExtTokenCopied(false), 2000);
   };
 
   const handleFeedback = async (value: 'yes' | 'no') => {
@@ -1020,6 +1045,48 @@ export function ChatInterface() {
                   >
                     Enregistrer
                   </button>
+
+                  {/* Extension VS Code : token de surveillance anti-collage */}
+                  <div className="mt-6 pt-6 border-t border-hairline">
+                    <div className="flex items-start gap-2 mb-2">
+                      <div className="text-sm font-semibold text-ink">Extension VS Code</div>
+                    </div>
+                    <p className="text-xs text-ink-3 mb-3 leading-relaxed">
+                      Générez un token pour connecter l'extension VS Code à votre compte.
+                      Elle signale les collages massifs de code à l'équipe pédagogique.
+                    </p>
+                    {extToken ? (
+                      <div className="flex gap-2">
+                        <input
+                          readOnly
+                          value={extToken}
+                          onFocus={(e) => e.currentTarget.select()}
+                          className="flex-1 bg-surface-2 border border-hairline rounded-lg px-3 py-2 text-xs font-mono text-ink-2 truncate"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleCopyExtToken}
+                          className="px-3 py-2 rounded-lg bg-accent hover:bg-accent-ink text-white text-xs font-medium whitespace-nowrap"
+                        >
+                          {extTokenCopied ? 'Copié ✓' : 'Copier'}
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleGenerateExtToken}
+                        disabled={extTokenLoading}
+                        className="px-4 py-2 bg-surface-2 hover:bg-hairline border border-hairline text-ink text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        {extTokenLoading ? 'Génération…' : 'Générer un token VS Code'}
+                      </button>
+                    )}
+                    {extToken && (
+                      <p className="text-xs text-watch mt-2">
+                        ⚠️ Copiez-le maintenant : collez-le dans les réglages de l'extension.
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
