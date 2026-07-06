@@ -1,10 +1,14 @@
-import { useState, useRef, useEffect } from 'react';
-import { MessageCircle, HelpCircle, Send, ArrowLeft, ChevronRight, Sparkles, X, Sun, Moon, LogOut, Menu, Plus, Trash2 } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { MessageCircle, HelpCircle, Send, ArrowLeft, ChevronRight, Sparkles, X, Sun, Moon, LogOut, Menu, Plus, Trash2, Users, Share2 } from 'lucide-react';
 import { createMessage, updateMessage, updateMessageFeedback } from '../services/messagesService';
 import { useTheme } from '../hooks/useTheme';
 import { sendMessageStream } from '../services/aiService';
 import { useAuth } from '../contexts/AuthContext';
 import { createConversation, deleteConversation, getMessagesByConversation, getUserConversations } from '../services/conversationsService';
+import { acceptInvite } from '../services/invitesService';
+import { useConversationRealtime } from '../hooks/useConversationRealtime';
+import { ShareConversationModal } from './ShareConversationModal';
+import type { Message as DBMessage } from '../types';
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -18,12 +22,38 @@ interface Message {
   timestamp: Date;
   dbId?: number; // id de la ligne en base (pour enregistrer le feedback)
   sources?: string[]; // documents utilisés par le RAG pour cette réponse
+  authorName?: string;   // nom de l'auteur (conversation partagée)
+  authorAvatar?: string; // avatar de l'auteur
+  isMine?: boolean;      // message écrit par l'utilisateur courant
 }
 
 interface ConversationItem {
   id: string;
   title: string | null;
   created_at?: string;
+  is_owner?: boolean;
+}
+
+const WELCOME_MESSAGE: Message = {
+  id: 1,
+  text: "Bonjour ! Je suis Epibot. Comment puis-je vous aider aujourd'hui ?",
+  sender: 'bot',
+  timestamp: new Date(),
+};
+
+/** Convertit une ligne DB en message d'affichage. */
+function toDisplayMessage(msg: DBMessage, currentUserId: string | null): Message {
+  return {
+    id: msg.id || Date.now(),
+    dbId: msg.id,
+    text: msg.content,
+    sender: msg.user_id ? 'user' : 'bot',
+    timestamp: msg.created_at ? new Date(msg.created_at) : new Date(),
+    sources: (msg.rag_sources as string[] | undefined) || undefined,
+    authorName: msg.author?.name || undefined,
+    authorAvatar: msg.author?.avatar_url || undefined,
+    isMine: !!msg.user_id && msg.user_id === currentUserId,
+  };
 }
 
 interface GeneralFAQItem {
@@ -159,9 +189,8 @@ export function ChatInterface() {
   const [sessionSeconds, setSessionSeconds] = useState(0);
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([
-    { id: 1, text: "Bonjour ! Je suis Epibot. Comment puis-je vous aider aujourd'hui ?", sender: 'bot', timestamp: new Date() }
-  ]);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -190,6 +219,43 @@ export function ChatInterface() {
     loadConversations();
   }, [user]);
 
+  // Acceptation d'une invitation via ?invite=<token> dans l'URL
+  useEffect(() => {
+    if (!user?.id) return;
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('invite');
+    if (!token) return;
+    (async () => {
+      try {
+        const convId = await acceptInvite(token);
+        await loadConversations();
+        setActiveConversationId(convId);
+        setView('chat');
+      } catch (e) {
+        console.error("Impossible de rejoindre la conversation:", e);
+        alert(e instanceof Error ? e.message : "Invitation invalide.");
+      } finally {
+        // Nettoyer l'URL pour ne pas re-déclencher l'acceptation
+        params.delete('invite');
+        const qs = params.toString();
+        window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : ''));
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  // Réception temps réel des messages des autres membres (et du bot)
+  const handleRealtimeInsert = useCallback((row: DBMessage) => {
+    if (!row.id) return;
+    setMessages((prev) => {
+      // Déduplication : ignorer un message déjà présent (le nôtre, déjà affiché)
+      if (prev.some((m) => m.dbId === row.id)) return prev;
+      return [...prev, toDisplayMessage(row, user?.id || null)];
+    });
+  }, [user?.id]);
+
+  useConversationRealtime(view === 'chat' ? activeConversationId : null, handleRealtimeInsert);
+
   useEffect(() => {
     const interval = setInterval(() => {
       setSessionSeconds(Math.floor((Date.now() - sessionStart) / 1000));
@@ -215,6 +281,7 @@ export function ChatInterface() {
         id: c.id as string,
         title: c.title,
         created_at: c.created_at,
+        is_owner: c.is_owner,
       }));
       setConversations(items);
       if (!activeConversationId && items.length > 0) {
@@ -228,12 +295,10 @@ export function ChatInterface() {
   const createNewConversation = async (title: string) => {
     if (!user?.id) return null;
     const convo = await createConversation(user.id, title);
-    const item = { id: convo.id as string, title: convo.title, created_at: convo.created_at };
+    const item = { id: convo.id as string, title: convo.title, created_at: convo.created_at, is_owner: true };
     setConversations((prev) => [item, ...prev]);
     setActiveConversationId(item.id);
-    setMessages([
-      { id: 1, text: "Bonjour ! Je suis Epibot. Comment puis-je vous aider aujourd'hui ?", sender: 'bot', timestamp: new Date() }
-    ]);
+    setMessages([WELCOME_MESSAGE]);
     setLastBotMessageId(null);
     setLastFeedback(null);
     return item.id;
@@ -250,9 +315,7 @@ export function ChatInterface() {
           setActiveConversationId(next.id);
         } else {
           setActiveConversationId(null);
-          setMessages([
-            { id: 1, text: "Bonjour ! Je suis Epibot. Comment puis-je vous aider aujourd'hui ?", sender: 'bot', timestamp: new Date() }
-          ]);
+          setMessages([WELCOME_MESSAGE]);
         }
       }
     } catch (error) {
@@ -264,19 +327,11 @@ export function ChatInterface() {
   const loadMessagesFromSupabase = async (conversationId: string) => {
     try {
       const supabaseMessages = await getMessagesByConversation(conversationId);
-      const formattedMessages: Message[] = supabaseMessages.map((msg) => ({
-        id: msg.id || Date.now(),
-        dbId: msg.id,
-        text: msg.content,
-        sender: msg.user_id ? 'user' : 'bot', // Si user_id existe, c'est un message utilisateur, sinon c'est le bot
-        timestamp: msg.created_at ? new Date(msg.created_at) : new Date(),
-        sources: msg.rag_sources || undefined,
-      }));
-      
-      setMessages([
-        { id: 1, text: "Bonjour ! Je suis Epibot. Comment puis-je vous aider aujourd'hui ?", sender: 'bot', timestamp: new Date() },
-        ...formattedMessages
-      ]);
+      const formattedMessages: Message[] = supabaseMessages.map((msg) =>
+        toDisplayMessage(msg, user?.id || null)
+      );
+
+      setMessages([WELCOME_MESSAGE, ...formattedMessages]);
       const lastBot = [...formattedMessages].reverse().find((msg) => msg.sender === 'bot');
       if (lastBot?.id) {
         setLastBotMessageId(lastBot.id);
@@ -293,11 +348,15 @@ export function ChatInterface() {
   const handleSendMessage = async (text: string = inputValue) => {
     if (!text.trim()) return;
 
+    const localUserMsgId = Date.now();
     const newUserMsg: Message = {
-      id: Date.now(),
+      id: localUserMsgId,
       text: text,
       sender: 'user',
-      timestamp: new Date()
+      timestamp: new Date(),
+      isMine: true,
+      authorName: profile.name || undefined,
+      authorAvatar: avatarPreview || undefined,
     };
 
     setMessages(prev => [...prev, newUserMsg]);
@@ -318,6 +377,10 @@ export function ChatInterface() {
         conversation_id: conversationId,
       });
       savedUserMessageId = savedUser.id ?? null;
+      // Attacher le dbId à la bulle locale -> évite un doublon via le realtime
+      if (savedUserMessageId) {
+        setMessages(prev => prev.map(m => m.id === localUserMsgId ? { ...m, dbId: savedUserMessageId! } : m));
+      }
     } catch (error) {
       // Ne pas bloquer le chat si la sauvegarde échoue
       console.warn('Erreur lors de la sauvegarde du message (non bloquant):', error);
@@ -649,22 +712,27 @@ export function ChatInterface() {
                   >
                     <button
                       onClick={() => setActiveConversationId(conv.id)}
-                      className="flex-1 text-left truncate"
+                      className="flex-1 text-left truncate flex items-center gap-1.5"
                       title={conv.title || 'Conversation'}
                     >
-                      {conv.title || 'Conversation'}
+                      {conv.is_owner === false && (
+                        <Users size={13} className="flex-shrink-0 text-emerald-500" />
+                      )}
+                      <span className="truncate">{conv.title || 'Conversation'}</span>
                     </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteConversation(conv.id);
-                      }}
-                      className="p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-500 hover:text-red-600"
-                      title="Supprimer"
-                      aria-label="Supprimer la conversation"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    {conv.is_owner !== false && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteConversation(conv.id);
+                        }}
+                        className="p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-500 hover:text-red-600"
+                        title="Supprimer"
+                        aria-label="Supprimer la conversation"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -686,22 +754,58 @@ export function ChatInterface() {
                     </div>
                   </div>
                 </div>
-                <button onClick={() => setView('home')} className="p-2 hover:bg-white/10 rounded-full transition-colors">
-                  <X size={20} />
-                </button>
+                <div className="flex items-center gap-1">
+                  {activeConversationId && (
+                    <button
+                      onClick={() => setShareOpen(true)}
+                      className="p-2 hover:bg-white/10 rounded-full transition-colors flex items-center gap-1.5 text-sm font-medium"
+                      title="Partager la conversation"
+                    >
+                      <Share2 size={18} />
+                      <span className="hidden sm:inline">Partager</span>
+                    </button>
+                  )}
+                  <button onClick={() => setView('home')} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+                    <X size={20} />
+                  </button>
+                </div>
               </div>
 
               {/* Zone des messages */}
               <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-slate-50 dark:bg-slate-900 transition-colors">
-                {messages.map((msg) => (
-                  <div 
-                    key={msg.id} 
-                    className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                {messages.map((msg) => {
+                  // Mon message = à droite. Message d'un autre membre ou du bot = à gauche.
+                  const isMine = msg.sender === 'user' && msg.isMine;
+                  const isOther = msg.sender === 'user' && !msg.isMine;
+                  return (
+                  <div
+                    key={msg.id}
+                    className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}
                   >
+                    <div className="max-w-[80%]">
+                      {/* Attribution de l'auteur pour les messages des AUTRES membres */}
+                      {isOther && (
+                        <div className="flex items-center gap-1.5 mb-1 ml-1">
+                          <div className="w-5 h-5 rounded-full bg-slate-300 dark:bg-slate-600 overflow-hidden flex items-center justify-center">
+                            {msg.authorAvatar ? (
+                              <img src={msg.authorAvatar} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-[9px] font-bold text-slate-600 dark:text-slate-200">
+                                {(msg.authorName || '?').slice(0, 1).toUpperCase()}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                            {msg.authorName || 'Étudiant'}
+                          </span>
+                        </div>
+                      )}
                     <div className={`
-                      max-w-[80%] rounded-2xl p-4 shadow-sm
-                      ${msg.sender === 'user' 
-                        ? 'bg-indigo-600 dark:bg-indigo-700 text-white rounded-br-none' 
+                      rounded-2xl p-4 shadow-sm
+                      ${isMine
+                        ? 'bg-indigo-600 dark:bg-indigo-700 text-white rounded-br-none'
+                        : isOther
+                        ? 'bg-emerald-50 dark:bg-emerald-900/20 text-slate-800 dark:text-slate-100 border border-emerald-100 dark:border-emerald-800 rounded-bl-none'
                         : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-100 dark:border-slate-700 rounded-bl-none'}
                     `}>
                       <div className="text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none">
@@ -721,13 +825,15 @@ export function ChatInterface() {
                           ))}
                         </div>
                       )}
-                      <span className={`text-[10px] block mt-2 ${msg.sender === 'user' ? 'text-indigo-200' : 'text-slate-400'}`}>
+                      <span className={`text-[10px] block mt-2 ${isMine ? 'text-indigo-200' : 'text-slate-400'}`}>
                         {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
+                    </div>
                   </div>
-                ))}
-                
+                  );
+                })}
+
                 {isTyping && (
                   <div className="flex justify-start">
                     <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl rounded-bl-none p-4 shadow-sm flex items-center gap-1 transition-colors">
@@ -860,6 +966,16 @@ export function ChatInterface() {
           </div>
         )}
       </main>
+
+      {shareOpen && activeConversationId && user?.id && (
+        <ShareConversationModal
+          conversationId={activeConversationId}
+          currentUserId={user.id}
+          isOwner={conversations.find((c) => c.id === activeConversationId)?.is_owner ?? false}
+          onClose={() => setShareOpen(false)}
+          onMembersChanged={loadConversations}
+        />
+      )}
     </div>
   );
 }

@@ -12,6 +12,16 @@ export interface Message {
   rag_sources?: string[] | null;        // titres des documents utilisés
   rag_context_found?: boolean | null;   // un contexte RAG a-t-il été trouvé ?
   flagged?: boolean | null;             // tentative de contournement du garde-fou (modération)
+  author?: MessageAuthor | null;        // auteur (jointure users) — null pour le bot
+}
+
+/**
+ * Auteur d'un message (jointure sur `users`), pour l'affichage en conversation partagée.
+ */
+export interface MessageAuthor {
+  id: string;
+  name: string | null;
+  avatar_url?: string | null;
 }
 
 /**
@@ -43,4 +53,17 @@ export interface Conversation {
   user_id?: string | null;
   title: string | null;
   created_at?: string;
+  member_count?: number;   // nb de participants (rempli côté service pour l'UI)
+  is_owner?: boolean;      // l'utilisateur courant est-il le créateur ?
+}
+
+/**
+ * Un participant d'une conversation partagée.
+ */
+export interface ConversationMember {
+  conversation_id: string;
+  user_id: string;
+  role: 'owner' | 'member';
+  joined_at?: string;
+  user?: MessageAuthor | null;  // profil joint (name / avatar)
 }

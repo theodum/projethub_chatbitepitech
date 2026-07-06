@@ -111,7 +111,7 @@ Le seuil de similarité (`0.65`) a été **calibré sur données réelles** pour
 
 ## 🔐 Sécurité
 
-- **Authentification** Supabase : email/mot de passe (restreint à `@epitech.eu`) **ou** Google OAuth.
+- **Authentification** Supabase : email/mot de passe (restreint à `@epitech.eu`) **ou** OAuth Google / Microsoft.
 - **RLS (Row Level Security)** activé sur toutes les tables : chaque étudiant ne voit que ses données ; l'admin voit tout.
 - Le **backend** utilise la clé `service_role` (jamais exposée au frontend) ; les endpoints d'administration sont protégés par **vérification du JWT + rôle admin**.
 
