@@ -31,6 +31,7 @@ import { listDocuments, uploadDocument, deleteDocument } from '../services/docum
 import type { DocumentItem } from '../services/documentsService';
 import { getPasteEvents } from '../services/extensionService';
 import type { PasteEvent } from '../services/extensionService';
+import { LogoMark } from './Logo';
 import type { AdminAlert, Message, User } from '../types';
 
 type ViewState = 'dashboard' | 'students' | 'analytics' | 'documents' | 'quality' | 'moderation';
@@ -95,6 +96,7 @@ export function AdminPanel() {
   const [currentView, setCurrentView] = useState<ViewState>('dashboard');
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [promoFilter, setPromoFilter] = useState<string>("all");
   const [users, setUsers] = useState<UserWithStats[]>([]);
   const [messages, setMessages] = useState<MessageWithUser[]>([]);
   const [alerts, setAlerts] = useState<AdminAlert[]>([]);
@@ -230,17 +232,17 @@ export function AdminPanel() {
       { label: string; value: string; unit?: string; delta?: string; deltaUp?: boolean; seed: number; accent?: 'accent' | 'critical' | 'positive' }) => {
       const barColor = accent === 'critical' ? 'bg-critical' : accent === 'positive' ? 'bg-positive' : 'bg-accent';
       return (
-        <div className="border border-hairline rounded-[10px] bg-surface px-3.5 py-3">
-          <div className="text-[10.5px] font-bold uppercase tracking-wider text-ink-3">{label}</div>
+        <div className="border border-hairline rounded-none bg-surface px-3.5 py-3">
+          <div className="font-mono text-[10px] uppercase tracking-wider text-ink-3">{label}</div>
           <div className="font-num text-[26px] leading-none mt-1.5 text-ink">{value}<span className="text-[15px]">{unit}</span></div>
           {delta && (
-            <div className={`text-[11px] font-semibold mt-1.5 ${deltaUp ? 'text-positive' : 'text-critical'}`}>
+            <div className={`font-mono text-[10px] uppercase tracking-wide mt-1.5 ${deltaUp ? 'text-positive' : 'text-critical'}`}>
               {deltaUp ? '▲' : '▲'} {delta}
             </div>
           )}
           <div className="flex items-end gap-[2px] h-[22px] mt-2">
             {spark(seed).map((h, i) => (
-              <span key={i} className={`flex-1 rounded-[1px] ${i === 6 ? barColor : 'bg-accent/35'}`} style={{ height: `${h}%` }} />
+              <span key={i} className={`flex-1 rounded-none ${i === 6 ? barColor : 'bg-accent/35'}`} style={{ height: `${h}%` }} />
             ))}
           </div>
         </div>
@@ -256,8 +258,8 @@ export function AdminPanel() {
         <p className="text-[12.5px] text-ink-2 mt-1 mb-4">Pilotage de l'activité, de la qualité des réponses et de la modération.</p>
 
         {alerts.length > 0 && (
-          <div className="mb-3 rounded-[10px] border border-watch/40 bg-watch-soft px-3.5 py-2.5 text-[12.5px] text-watch">
-            <div className="flex items-center gap-2 font-semibold mb-1">
+          <div className="mb-3 rounded-none border-l-2 border border-watch/40 border-l-watch bg-watch-soft px-3.5 py-2.5 text-[12.5px] text-watch">
+            <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider mb-1.5">
               <AlertTriangle size={15} /> Alertes usage (aujourd'hui)
             </div>
             <div className="space-y-0.5">
@@ -276,15 +278,15 @@ export function AdminPanel() {
 
         {/* Deux panneaux : modération + trous */}
         <div className="grid grid-cols-1 lg:grid-cols-[1.35fr_1fr] gap-3">
-          <div className="border border-hairline rounded-[10px] bg-surface overflow-hidden">
-            <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline">
-              <span className="text-[12.5px] font-bold text-ink">Modération — à confirmer</span>
-              <span className="font-num text-[10.5px] font-semibold px-1.5 py-0.5 rounded bg-critical-soft text-critical">{flagged.length} signalés</span>
+          <div className="border border-hairline rounded-none bg-surface overflow-hidden">
+            <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline bg-surface-2">
+              <span className="font-mono text-[10px] uppercase tracking-wider text-ink-3">Modération — à confirmer</span>
+              <span className="font-num text-[10.5px] font-semibold px-1.5 py-0.5 rounded-none bg-critical-soft text-critical">{flagged.length} signalés</span>
             </div>
             {flagged.slice(0, 3).map((m) => (
               <div key={m.id} className="flex items-center gap-2.5 px-3.5 py-2.5 border-b border-hairline last:border-b-0 text-[12.5px]">
-                <span className="w-[3px] self-stretch rounded-full bg-critical" />
-                <span className="font-num text-[10.5px] font-semibold px-1.5 py-0.5 rounded bg-critical-soft text-critical">CODE</span>
+                <span className="w-[3px] self-stretch rounded-none bg-critical" />
+                <span className="font-num text-[10.5px] font-semibold px-1.5 py-0.5 rounded-none bg-critical-soft text-critical">CODE</span>
                 <div className="flex-1 min-w-0">
                   <div className="truncate text-ink">« {m.content} »</div>
                 </div>
@@ -292,13 +294,13 @@ export function AdminPanel() {
             ))}
             {watchlist.map((u) => (
               <div key={u.id} className="flex items-center gap-2.5 px-3.5 py-2.5 border-b border-hairline last:border-b-0 text-[12.5px]">
-                <span className="w-[3px] self-stretch rounded-full bg-watch" />
-                <span className="font-num text-[10.5px] font-semibold px-1.5 py-0.5 rounded bg-watch-soft text-watch">USAGE</span>
+                <span className="w-[3px] self-stretch rounded-none bg-watch" />
+                <span className="font-num text-[10.5px] font-semibold px-1.5 py-0.5 rounded-none bg-watch-soft text-watch">USAGE</span>
                 <div className="flex-1 min-w-0">
                   <div className="truncate text-ink">{u.dailyMessageCount} messages aujourd'hui — surveiller</div>
                   <div className="font-num text-[11px] text-ink-3">{u.email} · promo {u.promo ?? '—'}</div>
                 </div>
-                <div className="w-[70px] h-1.5 rounded-full bg-surface-2 overflow-hidden">
+                <div className="w-[70px] h-1.5 rounded-none bg-surface-2 overflow-hidden">
                   <span className="block h-full bg-watch" style={{ width: `${u.usageScore}%` }} />
                 </div>
               </div>
@@ -308,10 +310,10 @@ export function AdminPanel() {
             )}
           </div>
 
-          <div className="border border-hairline rounded-[10px] bg-surface overflow-hidden">
-            <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline">
-              <span className="text-[12.5px] font-bold text-ink">Trous de connaissance</span>
-              <span className="font-num text-[10.5px] font-semibold px-1.5 py-0.5 rounded bg-watch-soft text-watch">sous 0.65</span>
+          <div className="border border-hairline rounded-none bg-surface overflow-hidden">
+            <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline bg-surface-2">
+              <span className="font-mono text-[10px] uppercase tracking-wider text-ink-3">Trous de connaissance</span>
+              <span className="font-num text-[10.5px] font-semibold px-1.5 py-0.5 rounded-none bg-watch-soft text-watch">sous 0.65</span>
             </div>
             {gaps.map((m) => (
               <div key={m.id} className="flex items-center gap-2.5 px-3.5 py-2.5 border-b border-hairline last:border-b-0 text-[12.5px]">
@@ -327,14 +329,14 @@ export function AdminPanel() {
 
         {/* Accès rapides discrets */}
         <div className="grid grid-cols-2 gap-2.5 mt-3">
-          <button onClick={() => setCurrentView('students')} className="group flex items-center justify-between border border-hairline rounded-[10px] bg-surface px-3.5 py-3 hover:border-accent transition-colors text-left">
+          <button onClick={() => setCurrentView('students')} className="group flex items-center justify-between border border-hairline rounded-none bg-surface px-3.5 py-3 hover:border-accent transition-colors text-left">
             <div>
               <div className="text-[13px] font-semibold text-ink">Vue Étudiants</div>
               <div className="text-[11.5px] text-ink-3">Scores d'usage · historique · modération</div>
             </div>
             <ArrowRight size={16} className="text-accent group-hover:translate-x-1 transition-transform" />
           </button>
-          <button onClick={() => setCurrentView('analytics')} className="group flex items-center justify-between border border-hairline rounded-[10px] bg-surface px-3.5 py-3 hover:border-accent transition-colors text-left">
+          <button onClick={() => setCurrentView('analytics')} className="group flex items-center justify-between border border-hairline rounded-none bg-surface px-3.5 py-3 hover:border-accent transition-colors text-left">
             <div>
               <div className="text-[13px] font-semibold text-ink">Vue Analytique</div>
               <div className="text-[11.5px] text-ink-3">Tendances · documents · pics d'activité</div>
@@ -375,9 +377,9 @@ export function AdminPanel() {
     const totalInteractions = Object.values(promoStats).reduce((sum, count) => sum + count, 0);
     const promoEntries = Object.entries(promoStats).sort((a, b) => b[1] - a[1]);
 
-    // Palette catégorielle (séries distinctes, PAS des états) accordée au design
-    // system : accent indigo, violet, ambre maïs, émeraude, rose.
-    const colors = ['bg-accent', 'bg-violet-500', 'bg-maize', 'bg-positive', 'bg-critical'];
+    // Palette catégorielle (séries distinctes, PAS des états) — nuances
+    // monochrome + sémantique cohérentes avec le design system station.
+    const colors = ['bg-accent', 'bg-ink-3', 'bg-positive', 'bg-watch', 'bg-critical'];
 
     return (
       <div className="flex-1 overflow-y-auto p-5 max-w-[1180px] mx-auto animate-in fade-in duration-300">
@@ -386,16 +388,16 @@ export function AdminPanel() {
             <h1 className="font-display text-base text-ink">Tendances & Statistiques</h1>
             <span className="font-num text-[11.5px] text-ink-3">admin / analytics · interactions étudiants</span>
           </div>
-          <button onClick={() => setCurrentView('dashboard')} className="text-[12px] font-medium text-ink-3 hover:text-accent transition-colors">
+          <button onClick={() => setCurrentView('dashboard')} className="font-mono text-[10px] uppercase tracking-wider text-ink-3 hover:text-accent transition-colors">
             Retour Dashboard
           </button>
         </div>
         <p className="text-[12.5px] text-ink-2 mt-1 mb-4">Analyse globale des interactions etudiants.</p>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          <div className="border border-hairline rounded-[10px] bg-surface overflow-hidden">
-            <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline">
-              <span className="flex items-center gap-2 text-[12.5px] font-bold text-ink">
+          <div className="border border-hairline rounded-none bg-surface overflow-hidden">
+            <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline bg-surface-2">
+              <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-ink-3">
                 <TrendingUp size={15} className="text-positive" />
                 Documents les plus consultés
               </span>
@@ -409,9 +411,9 @@ export function AdminPanel() {
                       <span className="text-ink truncate">{item.topic}</span>
                       <span className="font-num text-[11px] font-semibold text-ink-3 shrink-0">{item.count}×</span>
                     </div>
-                    <div className="w-full bg-surface-2 rounded-full h-1.5 overflow-hidden">
+                    <div className="w-full bg-surface-2 rounded-none h-1.5 overflow-hidden">
                       <div
-                        className="bg-accent h-1.5 rounded-full"
+                        className="bg-accent h-1.5 rounded-none"
                         style={{ width: `${Math.min(100, (item.count / (trends[0]?.count || 1)) * 100)}%` }}
                       ></div>
                     </div>
@@ -423,9 +425,9 @@ export function AdminPanel() {
             </div>
           </div>
 
-          <div className="border border-hairline rounded-[10px] bg-surface overflow-hidden">
-            <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline">
-              <span className="flex items-center gap-2 text-[12.5px] font-bold text-ink">
+          <div className="border border-hairline rounded-none bg-surface overflow-hidden">
+            <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline bg-surface-2">
+              <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-ink-3">
                 <PieChart size={15} className="text-accent" />
                 Repartition par Promo
               </span>
@@ -438,9 +440,9 @@ export function AdminPanel() {
                     <span className="font-num text-[11px] text-ink-3">{count} interactions</span>
                   </div>
                   <div className="flex items-center gap-2.5">
-                    <div className="flex-1 bg-surface-2 rounded-full h-2.5 overflow-hidden">
+                    <div className="flex-1 bg-surface-2 rounded-none h-2.5 overflow-hidden">
                       <div
-                        className={`h-2.5 rounded-full ${colors[idx % colors.length]}`}
+                        className={`h-2.5 rounded-none ${colors[idx % colors.length]}`}
                         style={{ width: `${totalInteractions > 0 ? (count / totalInteractions) * 100 : 0}%` }}
                       ></div>
                     </div>
@@ -452,7 +454,7 @@ export function AdminPanel() {
               ))}
 
               {promoEntries.length > 0 && (
-                <div className="mt-1 rounded-[8px] bg-surface-2 px-3 py-2 text-[12.5px] text-ink-2">
+                <div className="mt-1 rounded-none border border-hairline bg-surface-2 px-3 py-2 text-[12.5px] text-ink-2">
                   <strong className="text-ink">Analyse :</strong> La <strong>{promoEntries[0][0]}</strong> genere {Math.round((promoEntries[0][1] / totalInteractions) * 100)}% du trafic total.
                 </div>
               )}
@@ -461,9 +463,9 @@ export function AdminPanel() {
         </div>
 
         {/* Activité des 7 derniers jours */}
-        <div className="border border-hairline rounded-[10px] bg-surface overflow-hidden mt-3">
-          <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline">
-            <span className="flex items-center gap-2 text-[12.5px] font-bold text-ink">
+        <div className="border border-hairline rounded-none bg-surface overflow-hidden mt-3">
+          <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline bg-surface-2">
+            <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-ink-3">
               <Activity size={15} className="text-accent" />
               Activité (7 derniers jours)
             </span>
@@ -474,11 +476,11 @@ export function AdminPanel() {
                 <span className="font-num text-[11px] font-semibold text-ink">{day.count}</span>
                 <div className="w-full flex items-end justify-center" style={{ height: '110px' }}>
                   <div
-                    className="w-full max-w-[36px] bg-accent rounded-t-[3px]"
+                    className="w-full max-w-[36px] bg-accent rounded-none"
                     style={{ height: `${Math.max(2, (day.count / maxActivity) * 100)}%` }}
                   ></div>
                 </div>
-                <span className="text-[10px] text-ink-3">{day.label}</span>
+                <span className="font-mono text-[10px] text-ink-3">{day.label}</span>
               </div>
             ))}
           </div>
@@ -514,8 +516,8 @@ export function AdminPanel() {
       .sort((a, b) => (b.msg.rag_similarity || 0) - (a.msg.rag_similarity || 0));
 
     const Tile = ({ label, value, hint, accent }: { label: string; value: string; hint: string; accent: 'positive' | 'critical' | 'watch' }) => (
-      <div className="border border-hairline rounded-[10px] bg-surface px-3.5 py-3">
-        <div className={`text-[10.5px] font-bold uppercase tracking-wider text-${accent}`}>{label}</div>
+      <div className="border border-hairline rounded-none bg-surface px-3.5 py-3">
+        <div className={`font-mono text-[10px] uppercase tracking-wider text-${accent}`}>{label}</div>
         <div className="font-num text-[26px] leading-none mt-1.5 text-ink">{value}</div>
         <div className="text-[11px] text-ink-3 mt-1.5">{hint}</div>
       </div>
@@ -550,9 +552,9 @@ export function AdminPanel() {
           />
         </div>
 
-        <div className="border border-hairline rounded-[10px] bg-surface overflow-hidden mb-3">
-          <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline">
-            <span className="flex items-center gap-2 text-[12.5px] font-bold text-ink">
+        <div className="border border-hairline rounded-none bg-surface overflow-hidden mb-3">
+          <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline bg-surface-2">
+            <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-ink-3">
               <ThumbsDown size={15} className="text-critical" /> Réponses mal notées
             </span>
           </div>
@@ -560,7 +562,7 @@ export function AdminPanel() {
             {negatives.length === 0 ? (
               <p className="text-[12px] text-center py-4 text-ink-3">Aucune réponse notée 👎 pour l'instant.</p>
             ) : negatives.map((b) => (
-              <div key={b.msg.id} className="rounded-[8px] bg-surface-2 px-3 py-2 text-[12.5px]">
+              <div key={b.msg.id} className="rounded-none border-l-2 border-l-critical border border-hairline bg-surface-2 px-3 py-2 text-[12.5px]">
                 <p className="text-ink">❓ {b.question}</p>
                 <p className="mt-1 text-ink-3">💬 {b.msg.content.slice(0, 160)}{b.msg.content.length > 160 ? '…' : ''}</p>
               </div>
@@ -568,9 +570,9 @@ export function AdminPanel() {
           </div>
         </div>
 
-        <div className="border border-hairline rounded-[10px] bg-surface overflow-hidden">
-          <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline">
-            <span className="flex items-center gap-2 text-[12.5px] font-bold text-ink">
+        <div className="border border-hairline rounded-none bg-surface overflow-hidden">
+          <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline bg-surface-2">
+            <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-ink-3">
               <HelpCircle size={15} className="text-watch" /> Questions sans contexte — docs à ajouter ?
             </span>
           </div>
@@ -578,9 +580,9 @@ export function AdminPanel() {
             {noContext.length === 0 ? (
               <p className="text-[12px] text-center py-4 text-ink-3">Aucune question restée sans contexte. 🎉</p>
             ) : noContext.map((b) => (
-              <div key={b.msg.id} className="flex items-center justify-between gap-3 rounded-[8px] bg-surface-2 px-3 py-2 text-[12.5px]">
+              <div key={b.msg.id} className="flex items-center justify-between gap-3 rounded-none border border-hairline bg-surface-2 px-3 py-2 text-[12.5px]">
                 <span className="text-ink truncate">❓ {b.question}</span>
-                <span className="font-num text-[10.5px] font-semibold px-1.5 py-0.5 rounded bg-watch-soft text-watch shrink-0">
+                <span className="font-num text-[10.5px] font-semibold px-1.5 py-0.5 rounded-none bg-watch-soft text-watch shrink-0">
                   max {b.msg.rag_similarity != null ? b.msg.rag_similarity.toFixed(2) : '—'}
                 </span>
               </div>
@@ -617,23 +619,23 @@ export function AdminPanel() {
         <p className="text-[12.5px] text-ink-2 mt-1 mb-4">Contournements du garde-fou pédagogique et surveillance de l'usage.</p>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-3">
-          <div className="border border-hairline rounded-[10px] bg-surface px-3.5 py-3">
-            <div className="text-[10.5px] font-bold uppercase tracking-wider text-critical">Tentatives de contournement</div>
+          <div className="border border-hairline rounded-none bg-surface px-3.5 py-3">
+            <div className="font-mono text-[10px] uppercase tracking-wider text-critical">Tentatives de contournement</div>
             <div className="font-num text-[26px] leading-none mt-1.5 text-ink">{attempts.length}</div>
           </div>
-          <div className="border border-hairline rounded-[10px] bg-surface px-3.5 py-3">
-            <div className="text-[10.5px] font-bold uppercase tracking-wider text-critical">Collages de code (VS Code)</div>
+          <div className="border border-hairline rounded-none bg-surface px-3.5 py-3">
+            <div className="font-mono text-[10px] uppercase tracking-wider text-critical">Collages de code (VS Code)</div>
             <div className="font-num text-[26px] leading-none mt-1.5 text-ink">{pasteEvents.length}</div>
           </div>
-          <div className="border border-hairline rounded-[10px] bg-surface px-3.5 py-3">
-            <div className="text-[10.5px] font-bold uppercase tracking-wider text-watch">Utilisateurs à surveiller</div>
+          <div className="border border-hairline rounded-none bg-surface px-3.5 py-3">
+            <div className="font-mono text-[10px] uppercase tracking-wider text-watch">Utilisateurs à surveiller</div>
             <div className="font-num text-[26px] leading-none mt-1.5 text-ink">{watchlist.length}</div>
           </div>
         </div>
 
-        <div className="border border-hairline rounded-[10px] bg-surface overflow-hidden mb-3">
-          <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline">
-            <span className="flex items-center gap-2 text-[12.5px] font-bold text-ink">
+        <div className="border border-hairline rounded-none bg-surface overflow-hidden mb-3">
+          <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline bg-surface-2">
+            <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-ink-3">
               <ShieldAlert size={15} className="text-critical" /> Demandes suspectes (code / solution direct)
             </span>
           </div>
@@ -641,8 +643,8 @@ export function AdminPanel() {
             {attempts.length === 0 ? (
               <p className="text-[12px] text-center py-4 text-ink-3">Aucune tentative détectée. 👍</p>
             ) : attempts.map((a) => (
-              <div key={a.msg.id} className="flex gap-2.5 rounded-[8px] bg-surface-2 px-3 py-2 text-[12.5px]">
-                <span className="w-[3px] self-stretch rounded-full bg-critical" />
+              <div key={a.msg.id} className="flex gap-2.5 rounded-none border border-hairline bg-surface-2 px-3 py-2 text-[12.5px]">
+                <span className="w-[3px] self-stretch rounded-none bg-critical" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-medium text-ink truncate">{a.user?.name || a.user?.email || 'Utilisateur inconnu'}</span>
@@ -656,12 +658,12 @@ export function AdminPanel() {
         </div>
 
         {/* Collages massifs détectés par l'extension VS Code */}
-        <div className="border border-hairline rounded-[10px] bg-surface overflow-hidden mb-3">
-          <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline">
-            <span className="flex items-center gap-2 text-[12.5px] font-bold text-ink">
+        <div className="border border-hairline rounded-none bg-surface overflow-hidden mb-3">
+          <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline bg-surface-2">
+            <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-ink-3">
               <FileText size={15} className="text-critical" /> Collages de code suspects (VS Code)
             </span>
-            <span className="font-num text-[10.5px] font-semibold px-1.5 py-0.5 rounded bg-critical-soft text-critical">
+            <span className="font-num text-[10.5px] font-semibold px-1.5 py-0.5 rounded-none bg-critical-soft text-critical">
               {pasteEvents.length}
             </span>
           </div>
@@ -669,8 +671,8 @@ export function AdminPanel() {
             {pasteEvents.length === 0 ? (
               <p className="text-[12px] text-center py-4 text-ink-3">Aucun collage massif détecté. 👍</p>
             ) : pasteEvents.map((p) => (
-              <div key={p.id} className="flex gap-2.5 rounded-[8px] bg-surface-2 px-3 py-2 text-[12.5px]">
-                <span className="w-[3px] self-stretch rounded-full bg-critical" />
+              <div key={p.id} className="flex gap-2.5 rounded-none border border-hairline bg-surface-2 px-3 py-2 text-[12.5px]">
+                <span className="w-[3px] self-stretch rounded-none bg-critical" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-medium text-ink truncate">
@@ -681,18 +683,18 @@ export function AdminPanel() {
                     </span>
                   </div>
                   <div className="flex items-center gap-2 mt-1 font-num text-[11px] text-ink-3">
-                    <span className="px-1.5 py-0.5 rounded bg-critical-soft text-critical font-semibold">
+                    <span className="px-1.5 py-0.5 rounded-none bg-critical-soft text-critical font-semibold">
                       {p.line_count} lignes
                     </span>
                     {p.language && (
-                      <span className="px-1.5 py-0.5 rounded bg-accent-soft text-accent-ink font-semibold uppercase">
+                      <span className="px-1.5 py-0.5 rounded-none bg-accent-soft text-accent-ink font-semibold uppercase">
                         {p.language}
                       </span>
                     )}
                     {p.file_name && <span className="truncate">{p.file_name}</span>}
                   </div>
                   {p.excerpt && (
-                    <pre className="mt-1.5 text-[11px] text-ink-3 bg-ground rounded px-2 py-1.5 overflow-x-auto whitespace-pre-wrap max-h-24">
+                    <pre className="mt-1.5 text-[11px] text-ink-3 bg-ground border border-hairline rounded-none px-2 py-1.5 overflow-x-auto whitespace-pre-wrap max-h-24">
                       {p.excerpt}
                     </pre>
                   )}
@@ -702,9 +704,9 @@ export function AdminPanel() {
           </div>
         </div>
 
-        <div className="border border-hairline rounded-[10px] bg-surface overflow-hidden">
-          <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline">
-            <span className="flex items-center gap-2 text-[12.5px] font-bold text-ink">
+        <div className="border border-hairline rounded-none bg-surface overflow-hidden">
+          <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline bg-surface-2">
+            <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-ink-3">
               <AlertTriangle size={15} className="text-watch" /> Usage élevé à surveiller
             </span>
           </div>
@@ -714,12 +716,12 @@ export function AdminPanel() {
             ) : watchlist.map((u) => {
               const status = getUsageStatus(u.usageScore);
               return (
-                <div key={u.id} className="flex items-center justify-between gap-3 rounded-[8px] bg-surface-2 px-3 py-2 text-[12.5px]">
+                <div key={u.id} className="flex items-center justify-between gap-3 rounded-none border border-hairline bg-surface-2 px-3 py-2 text-[12.5px]">
                   <div className="min-w-0">
                     <p className="font-medium truncate text-ink">{u.name || u.email}</p>
                     <p className="font-num text-[11px] text-ink-3">{u.promo ? `Promo ${u.promo}` : 'Promo inconnue'} · {u.dailyMessageCount} msg aujourd'hui</p>
                   </div>
-                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded border text-[11px] font-bold ${status.color} ${status.darkColor} shrink-0`}>
+                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded-none border text-[11px] font-bold ${status.color} ${status.darkColor} shrink-0`}>
                     {status.icon}
                     {status.label} ({u.usageScore}%)
                   </div>
@@ -734,10 +736,29 @@ export function AdminPanel() {
 
   const StudentsView = () => {
     const selectedUser = users.find(u => u.id === selectedUserId) || users[0];
-    const filteredUsers = users.filter(user =>
-      (user.name?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
-      (user.email?.toLowerCase().includes(searchTerm.toLowerCase()) || false)
-    );
+
+    // Promos réellement présentes (triées décroissant : la plus récente d'abord)
+    const availablePromos = Array.from(
+      new Set(users.map(u => u.promo).filter((p): p is number => typeof p === 'number'))
+    ).sort((a, b) => b - a);
+
+    const filteredUsers = users
+      .filter(user => {
+        const matchesSearch =
+          (user.name?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
+          (user.email?.toLowerCase().includes(searchTerm.toLowerCase()) || false);
+        const matchesPromo =
+          promoFilter === 'all' ? true :
+          promoFilter === 'none' ? (user.promo == null) :
+          String(user.promo) === promoFilter;
+        return matchesSearch && matchesPromo;
+      })
+      // Tri : par promo décroissante, puis par nom
+      .sort((a, b) => {
+        const pa = a.promo ?? -1, pb = b.promo ?? -1;
+        if (pa !== pb) return pb - pa;
+        return (a.name || a.email || '').localeCompare(b.name || b.email || '');
+      });
 
     if (loading) {
       return (
@@ -782,7 +803,7 @@ export function AdminPanel() {
     return (
       <div className="flex flex-1 h-full overflow-hidden animate-in fade-in duration-300">
         <aside className="w-72 bg-surface border-r border-hairline flex flex-col z-10">
-          <div className="p-3 border-b border-hairline">
+          <div className="p-3 border-b border-hairline space-y-2">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-3" size={15} />
               <input
@@ -790,8 +811,26 @@ export function AdminPanel() {
                 placeholder="Rechercher..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-surface-2 border border-hairline rounded-[8px] pl-9 pr-3 py-2 text-[13px] text-ink placeholder:text-ink-3 outline-none focus:border-accent transition-colors"
+                className="w-full bg-surface-2 border border-hairline rounded-none pl-9 pr-3 py-2 text-[13px] text-ink placeholder:text-ink-3 outline-none focus:border-accent transition-colors"
               />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[10px] uppercase tracking-wider text-ink-3 shrink-0">Promo</span>
+              <select
+                value={promoFilter}
+                onChange={(e) => setPromoFilter(e.target.value)}
+                className="flex-1 bg-surface-2 border border-hairline rounded-none px-2 py-1.5 text-[12.5px] text-ink outline-none focus:border-accent transition-colors font-num"
+              >
+                <option value="all">Toutes ({users.length})</option>
+                {availablePromos.map(p => (
+                  <option key={p} value={String(p)}>
+                    {p} ({users.filter(u => u.promo === p).length})
+                  </option>
+                ))}
+                {users.some(u => u.promo == null) && (
+                  <option value="none">Sans promo ({users.filter(u => u.promo == null).length})</option>
+                )}
+              </select>
             </div>
           </div>
           <div className="flex-1 overflow-y-auto p-1.5 space-y-0.5">
@@ -801,10 +840,10 @@ export function AdminPanel() {
                 <button
                   key={user.id}
                   onClick={() => setSelectedUserId(user.id || null)}
-                  className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[8px] transition-colors text-left group ${
+                  className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-none transition-colors text-left group border-l-2 ${
                     selectedUserId === user.id
-                      ? 'bg-accent-soft border border-accent'
-                      : 'hover:bg-surface-2 border border-transparent'
+                      ? 'bg-accent-soft border border-hairline border-l-accent'
+                      : 'hover:bg-surface-2 border border-transparent border-l-transparent'
                   }`}
                 >
                   <div className="relative">
@@ -825,7 +864,7 @@ export function AdminPanel() {
                       {user.promo ? `Promo ${user.promo}` : 'Promo inconnue'}
                     </p>
                   </div>
-                  <div className={`font-num text-[10.5px] font-semibold px-1.5 py-0.5 rounded ${
+                  <div className={`font-num text-[10.5px] font-semibold px-1.5 py-0.5 rounded-none ${
                     selectedUserId === user.id
                       ? 'bg-surface text-accent-ink'
                       : 'bg-surface-2 text-ink-3'
@@ -849,7 +888,7 @@ export function AdminPanel() {
                 </div>
               </div>
             </div>
-            <div className={`flex items-center gap-1.5 px-2 py-1 rounded border text-[11px] font-bold ${userStatus.color} ${userStatus.darkColor}`}>
+            <div className={`flex items-center gap-1.5 px-2 py-1 rounded-none border text-[11px] font-bold ${userStatus.color} ${userStatus.darkColor}`}>
               {userStatus.icon}
               <span>{userStatus.label}</span>
               <span className="ml-1 opacity-75">({selectedUser.usageScore}%)</span>
@@ -857,9 +896,9 @@ export function AdminPanel() {
           </header>
 
           <div className="flex-1 overflow-y-auto p-5">
-            <div className="border border-hairline rounded-[10px] bg-surface overflow-hidden flex flex-col h-full">
-              <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline">
-                <span className="text-[12.5px] font-bold text-ink">Historique des messages</span>
+            <div className="border border-hairline rounded-none bg-surface overflow-hidden flex flex-col h-full">
+              <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline bg-surface-2">
+                <span className="font-mono text-[10px] uppercase tracking-wider text-ink-3">Historique des messages</span>
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
                 {userMessages.length > 0 ? userMessages.map((msg, idx) => {
@@ -868,12 +907,12 @@ export function AdminPanel() {
 
                   return (
                     <div key={idx} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[70%] px-3 py-2 rounded-[8px] text-[12.5px] ${
+                      <div className={`max-w-[70%] px-3 py-2 rounded-none border text-[12.5px] ${
                         isUser
-                          ? 'bg-accent text-white rounded-tr-none'
-                          : 'bg-surface-2 text-ink rounded-tl-none'
+                          ? 'bg-accent on-accent border-accent'
+                          : 'bg-surface-2 text-ink border-hairline'
                       }`}>
-                        <div className="mb-1 text-[10px] opacity-70 uppercase font-bold">
+                        <div className="mb-1 font-mono text-[10px] opacity-70 uppercase tracking-wider">
                           {isUser ? (selectedUser.name || selectedUser.email) : 'Epibot'}
                         </div>
                         {msg.content}
@@ -898,8 +937,8 @@ export function AdminPanel() {
     <div className={`admin-console ${theme === 'light' ? 'console-light' : ''} flex h-screen font-sans bg-ground text-ink transition-colors`}>
       <nav className="w-[62px] bg-rail border-r border-hairline flex flex-col items-center py-3 z-50 justify-between">
         <div className="flex flex-col items-center gap-1 w-full">
-          <div className="w-9 h-9 rounded-lg bg-accent-soft text-accent flex items-center justify-center mb-3">
-            <img src="/epis_mais.png" alt="Epibot" className="w-5 h-5" />
+          <div className="w-9 h-9 rounded-[2px] bg-white/15 flex items-center justify-center mb-3 border border-white/20">
+            <LogoMark size={16} tone="light" />
           </div>
 
           <div className="flex flex-col gap-1 w-full px-2.5">
@@ -945,14 +984,14 @@ export function AdminPanel() {
         <div className="flex flex-col gap-1 w-full px-2.5 pb-1">
           <button
             onClick={toggleTheme}
-            className="w-full h-10 rounded-lg flex items-center justify-center transition-colors text-ink-3 hover:bg-surface-2 hover:text-ink"
+            className="w-full h-10 rounded-[2px] flex items-center justify-center transition-colors text-white/55 hover:bg-white/10 hover:text-white"
             title={theme === 'light' ? 'Mode sombre' : 'Mode clair'}
           >
             {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
           </button>
           <button
             onClick={signOut}
-            className="w-full h-10 rounded-lg flex items-center justify-center transition-colors text-ink-3 hover:bg-critical-soft hover:text-critical"
+            className="w-full h-10 rounded-[2px] flex items-center justify-center transition-colors text-white/55 hover:bg-white/15 hover:text-white"
             title="Se deconnecter"
           >
             <LogOut size={18} />
@@ -1034,13 +1073,13 @@ const DocumentsView = () => {
         <div className="flex items-center gap-2">
           <button
             onClick={load}
-            className="p-2 rounded-[8px] bg-surface-2 border border-hairline text-ink-2 hover:opacity-80 transition-colors"
+            className="p-2 rounded-none bg-surface-2 border border-hairline text-ink-2 hover:opacity-80 transition-colors"
             title="Rafraîchir"
           >
             <RefreshCw size={16} />
           </button>
           <label
-            className={`flex items-center gap-2 px-3 py-2 rounded-[8px] bg-accent hover:bg-accent-ink text-white text-[13px] font-semibold cursor-pointer transition-colors ${uploading ? 'opacity-60 pointer-events-none' : ''}`}
+            className={`flex items-center gap-2 px-3 py-2 rounded-none border border-accent bg-accent on-accent hover:bg-accent-ink text-[13px] font-semibold cursor-pointer transition-colors ${uploading ? 'opacity-60 pointer-events-none' : ''}`}
           >
             <Upload size={15} />
             {uploading ? 'Ingestion…' : 'Ajouter un document'}
@@ -1057,13 +1096,13 @@ const DocumentsView = () => {
       <p className="text-[12.5px] text-ink-2 mt-1 mb-4">{docs.length} document(s) · {totalChunks} passage(s) indexé(s)</p>
 
       {error && (
-        <div className="mb-3 rounded-[10px] border border-critical bg-critical-soft px-3.5 py-2.5 text-[12.5px] text-critical">
+        <div className="mb-3 rounded-none border-l-2 border border-critical border-l-critical bg-critical-soft px-3.5 py-2.5 text-[12.5px] text-critical">
           {error}
         </div>
       )}
 
-      <div className="border border-hairline rounded-[10px] bg-surface overflow-hidden">
-        <div className="grid grid-cols-12 px-3.5 py-2.5 border-b border-hairline text-[10.5px] font-bold uppercase tracking-wider text-ink-3">
+      <div className="border border-hairline rounded-none bg-surface overflow-hidden">
+        <div className="grid grid-cols-12 px-3.5 py-2.5 border-b border-hairline bg-surface-2 font-mono text-[10px] uppercase tracking-wider text-ink-3">
           <div className="col-span-6">Document</div>
           <div className="col-span-2 text-center">Passages</div>
           <div className="col-span-3">Ajouté le</div>
@@ -1083,7 +1122,7 @@ const DocumentsView = () => {
               className="grid grid-cols-12 items-center px-3.5 py-2.5 border-b border-hairline last:border-b-0 hover:bg-surface-2 transition-colors text-[12.5px]"
             >
               <div className="col-span-6 flex items-center gap-2.5 min-w-0">
-                <div className="p-1.5 rounded-[6px] bg-accent-soft text-accent">
+                <div className="p-1.5 rounded-none border border-hairline bg-accent-soft text-accent">
                   <FileText size={15} />
                 </div>
                 <div className="min-w-0">
@@ -1098,7 +1137,7 @@ const DocumentsView = () => {
               <div className="col-span-1 flex justify-end">
                 <button
                   onClick={() => handleDelete(doc.id, doc.titre)}
-                  className="p-1.5 rounded-[6px] text-ink-3 hover:text-critical hover:bg-critical-soft transition-colors"
+                  className="p-1.5 rounded-none text-ink-3 hover:text-critical hover:bg-critical-soft transition-colors"
                   title="Supprimer"
                 >
                   <Trash2 size={15} />
@@ -1120,10 +1159,10 @@ const NavButton = ({ active, onClick, icon, label }: { active: boolean; onClick:
   <button
     onClick={onClick}
     className={`
-      relative w-full h-10 rounded-lg flex items-center justify-center transition-colors
+      relative w-full h-10 rounded-[2px] flex items-center justify-center transition-colors
       ${active
-        ? 'bg-surface-2 text-accent before:content-[""] before:absolute before:-left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:rounded-full before:bg-accent'
-        : 'text-ink-3 hover:bg-surface-2 hover:text-ink'
+        ? 'bg-white/15 text-white before:content-[""] before:absolute before:-left-2.5 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-none before:bg-white'
+        : 'text-white/55 hover:bg-white/10 hover:text-white'
       }
     `}
     title={label}

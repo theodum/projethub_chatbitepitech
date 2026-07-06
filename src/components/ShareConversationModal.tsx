@@ -94,135 +94,137 @@ export function ShareConversationModal({
       onClick={onClose}
     >
       <div
-        className="bg-surface rounded-2xl shadow-2xl border border-hairline w-full max-w-md p-6"
+        className="bg-surface rounded-none border border-hairline-strong w-full max-w-md"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-display text-lg font-semibold text-ink">
+        <div className="flex items-center justify-between border-b border-hairline px-5 py-4">
+          <h3 className="font-display text-base font-semibold text-ink">
             Partager la conversation
           </h3>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-surface-2 text-ink-3"
+            className="p-1.5 rounded-none hover:bg-surface-2 text-ink-3"
           >
             <X size={18} />
           </button>
         </div>
 
-        {error && (
-          <div className="mb-3 text-sm text-critical bg-critical-soft rounded-lg px-3 py-2">
-            {error}
-          </div>
-        )}
+        <div className="px-5 py-4">
+          {error && (
+            <div className="mb-4 text-sm text-critical bg-critical-soft border border-hairline rounded-none px-3 py-2">
+              {error}
+            </div>
+          )}
 
-        {isOwner && (
-          <>
-            {/* Lien d'invitation */}
-            <div className="mb-5">
-              <p className="text-sm font-semibold text-ink-2 mb-2">
-                Lien d'invitation
-              </p>
-              {inviteLink ? (
+          {isOwner && (
+            <>
+              {/* Lien d'invitation */}
+              <div className="mb-5">
+                <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3 mb-2">
+                  Lien d'invitation
+                </p>
+                {inviteLink ? (
+                  <div className="flex gap-2">
+                    <input
+                      readOnly
+                      value={inviteLink}
+                      className="flex-1 bg-surface-2 border border-hairline rounded-none px-3 py-2 text-xs font-mono text-ink-2 truncate outline-none"
+                    />
+                    <button
+                      onClick={handleCopy}
+                      className="px-3 py-2 rounded-none bg-accent on-accent hover:bg-accent-ink flex items-center gap-1.5 text-sm font-medium"
+                    >
+                      {copied ? <Check size={16} /> : <Copy size={16} />}
+                      {copied ? 'Copié' : 'Copier'}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleGenerateLink}
+                    className="text-sm font-medium text-accent hover:underline"
+                  >
+                    Générer un lien d'invitation
+                  </button>
+                )}
+                <p className="mt-1.5 text-xs text-ink-3">
+                  Toute personne connectée avec un compte @epitech.eu qui ouvre ce lien
+                  rejoint la conversation.
+                </p>
+              </div>
+
+              {/* Ajout par email */}
+              <form onSubmit={handleAddEmail} className="mb-5">
+                <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3 mb-2">
+                  Ajouter par email
+                </p>
                 <div className="flex gap-2">
                   <input
-                    readOnly
-                    value={inviteLink}
-                    className="flex-1 bg-surface-2 border border-hairline rounded-lg px-3 py-2 text-xs font-mono text-ink-2 truncate"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="prenom.nom@epitech.eu"
+                    className="flex-1 bg-surface-2 border border-hairline focus:border-accent rounded-none px-3 py-2 text-sm text-ink placeholder:text-ink-3 outline-none"
                   />
                   <button
-                    onClick={handleCopy}
-                    className="px-3 py-2 rounded-lg bg-accent hover:bg-accent-ink text-white flex items-center gap-1.5 text-sm font-medium"
+                    type="submit"
+                    disabled={busy || !email.trim()}
+                    className="px-3 py-2 rounded-none bg-accent on-accent hover:bg-accent-ink disabled:opacity-50 flex items-center gap-1.5 text-sm font-medium"
                   >
-                    {copied ? <Check size={16} /> : <Copy size={16} />}
-                    {copied ? 'Copié' : 'Copier'}
+                    <UserPlus size={16} />
+                    Ajouter
                   </button>
                 </div>
-              ) : (
-                <button
-                  onClick={handleGenerateLink}
-                  className="text-sm font-medium text-accent hover:underline"
-                >
-                  Générer un lien d'invitation
-                </button>
-              )}
-              <p className="mt-1.5 text-xs text-ink-3">
-                Toute personne connectée avec un compte @epitech.eu qui ouvre ce lien
-                rejoint la conversation.
-              </p>
-            </div>
+              </form>
+            </>
+          )}
 
-            {/* Ajout par email */}
-            <form onSubmit={handleAddEmail} className="mb-5">
-              <p className="text-sm font-semibold text-ink-2 mb-2">
-                Ajouter par email
-              </p>
-              <div className="flex gap-2">
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="prenom.nom@epitech.eu"
-                  className="flex-1 bg-surface-2 border border-hairline focus:border-accent rounded-lg px-3 py-2 text-sm text-ink placeholder:text-ink-3 outline-none"
-                />
-                <button
-                  type="submit"
-                  disabled={busy || !email.trim()}
-                  className="px-3 py-2 rounded-lg bg-accent hover:bg-accent-ink disabled:opacity-50 text-white flex items-center gap-1.5 text-sm font-medium"
-                >
-                  <UserPlus size={16} />
-                  Ajouter
-                </button>
-              </div>
-            </form>
-          </>
-        )}
-
-        {/* Liste des membres */}
-        <div>
-          <p className="text-sm font-semibold text-ink-2 mb-2">
-            Participants ({members.length})
-          </p>
-          <div className="space-y-1.5 max-h-52 overflow-y-auto">
-            {members.map((m) => (
-              <div
-                key={m.user_id}
-                className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-surface-2"
-              >
+          {/* Liste des membres */}
+          <div>
+            <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3 mb-2">
+              Participants ({members.length})
+            </p>
+            <div className="space-y-px max-h-52 overflow-y-auto border-t border-hairline">
+              {members.map((m) => (
                 <div
-                  className="w-7 h-7 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0 text-xs font-bold text-white"
-                  style={{
-                    background: m.user_id === currentUserId
-                      ? 'var(--color-maize)'
-                      : 'var(--color-positive)',
-                  }}
+                  key={m.user_id}
+                  className="flex items-center gap-2.5 px-2 py-2 border-b border-hairline hover:bg-surface-2"
                 >
-                  {m.user?.avatar_url ? (
-                    <img src={m.user.avatar_url} alt="" className="w-full h-full object-cover" />
+                  <div
+                    className="w-7 h-7 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0 text-xs font-bold on-accent"
+                    style={{
+                      background: m.user_id === currentUserId
+                        ? 'var(--color-accent)'
+                        : 'var(--color-positive)',
+                    }}
+                  >
+                    {m.user?.avatar_url ? (
+                      <img src={m.user.avatar_url} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      (m.user?.name || '?').slice(0, 1).toUpperCase()
+                    )}
+                  </div>
+                  <span className="flex-1 text-sm text-ink truncate">
+                    {m.user?.name || 'Étudiant'}
+                    {m.user_id === currentUserId && ' (vous)'}
+                  </span>
+                  {m.role === 'owner' ? (
+                    <span title="Créateur" className="text-watch">
+                      <Crown size={15} />
+                    </span>
                   ) : (
-                    (m.user?.name || '?').slice(0, 1).toUpperCase()
+                    (isOwner || m.user_id === currentUserId) && (
+                      <button
+                        onClick={() => handleRemove(m.user_id)}
+                        title={m.user_id === currentUserId ? 'Quitter' : 'Retirer'}
+                        className="p-1 rounded-none hover:bg-critical-soft text-ink-3 hover:text-critical"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )
                   )}
                 </div>
-                <span className="flex-1 text-sm text-ink truncate">
-                  {m.user?.name || 'Étudiant'}
-                  {m.user_id === currentUserId && ' (vous)'}
-                </span>
-                {m.role === 'owner' ? (
-                  <span title="Créateur" className="text-maize">
-                    <Crown size={15} />
-                  </span>
-                ) : (
-                  (isOwner || m.user_id === currentUserId) && (
-                    <button
-                      onClick={() => handleRemove(m.user_id)}
-                      title={m.user_id === currentUserId ? 'Quitter' : 'Retirer'}
-                      className="p-1 rounded-md hover:bg-critical-soft text-ink-3 hover:text-critical"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  )
-                )}
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </div>

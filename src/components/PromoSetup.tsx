@@ -34,31 +34,45 @@ export function PromoSetup({ user, onComplete }: PromoSetupProps) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-6">
-      <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-6">
-        <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Bienvenue</h1>
-        <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
-          Renseigne ton numéro de promo pour continuer.
-        </p>
-        <form onSubmit={handleSubmit} className="mt-5 space-y-3">
-          <input
-            type="text"
-            inputMode="numeric"
-            placeholder="Ex: 2029"
-            value={promo}
-            maxLength={4}
-            onChange={(e) => {
-              const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 4);
-              setPromo(digitsOnly);
-              if (error) setError(null);
-            }}
-            className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-          {error && <div className="text-sm text-red-600">{error}</div>}
+    <div className="min-h-screen flex items-center justify-center bg-ground p-6">
+      <div className="w-full max-w-sm bg-surface border border-hairline-strong rounded-none">
+        <div className="border-b border-hairline px-6 py-5">
+          <p className="font-mono text-[11px] uppercase tracking-wider text-ink-3 mb-1.5">
+            Epibot // Profil
+          </p>
+          <h1 className="font-display text-xl font-semibold text-ink">Bienvenue</h1>
+          <p className="text-sm text-ink-2 mt-1">
+            Renseigne ton numéro de promo pour continuer.
+          </p>
+        </div>
+        <form onSubmit={handleSubmit} className="px-6 py-5 flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
+              Promo
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              placeholder="Ex: 2029"
+              value={promo}
+              maxLength={4}
+              onChange={(e) => {
+                const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 4);
+                setPromo(digitsOnly);
+                if (error) setError(null);
+              }}
+              className="w-full bg-surface-2 border border-hairline rounded-none px-3 py-2 text-ink placeholder:text-ink-3 outline-none focus:border-accent"
+            />
+          </div>
+          {error && (
+            <div className="border border-hairline bg-critical-soft text-critical rounded-none px-3 py-2 text-sm">
+              {error}
+            </div>
+          )}
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white py-3 transition-colors"
+            className="w-full bg-accent on-accent rounded-none px-4 py-2.5 font-medium disabled:opacity-60"
           >
             {loading ? 'Enregistrement...' : 'Continuer'}
           </button>

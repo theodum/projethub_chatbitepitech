@@ -9,6 +9,7 @@ import { acceptInvite } from '../services/invitesService';
 import { generateExtensionToken } from '../services/extensionService';
 import { useConversationRealtime } from '../hooks/useConversationRealtime';
 import { ShareConversationModal } from './ShareConversationModal';
+import { Logo } from './Logo';
 import type { Message as DBMessage, ConversationMember } from '../types';
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -580,116 +581,151 @@ export function ChatInterface() {
 
   return (
     <div className="min-h-screen bg-ground text-ink font-sans selection:bg-accent-soft transition-colors">
-      {/* Header Global */}
-      <header className="bg-surface/80 backdrop-blur-md border-b border-hairline sticky top-0 z-50 transition-colors">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setView('home')}>
-            <img src="/epitech-logo.png" alt="Epitech" className="h-8 w-auto" />
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white bg-gradient-to-br from-accent to-maize shadow-sm shadow-accent/30">
-              <img src="/epis_mais.png" alt="Epis de maïs" className="w-5 h-5" />
-            </div>
-            <span className="font-display font-semibold text-xl text-ink">Epibot</span>
-          </div>
-          <div className="flex items-center gap-4 relative">
+      {/* Header Global — topbar façon IDE, aplat bleu de marque */}
+      <header className="bg-accent border-b border-accent-ink sticky top-0 z-50 transition-colors">
+        <div className="h-11 flex items-stretch justify-between text-white">
+          {/* Marque */}
+          <button
+            onClick={() => setView('home')}
+            className="flex items-center px-3.5 border-r border-white/15 hover:bg-white/10 transition-colors"
+          >
+            <Logo size={18} tone="light" />
+          </button>
+
+          {/* Navigation */}
+          <nav className="flex items-stretch">
+            <button
+              onClick={() => setView('home')}
+              className={`px-3.5 flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider border-r border-white/15 transition-colors ${
+                view === 'home' ? 'text-white bg-white/15' : 'text-white/60 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              Accueil
+            </button>
+            <button
+              onClick={() => setView('chat')}
+              className={`px-3.5 flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider border-r border-white/15 transition-colors ${
+                view === 'chat' ? 'text-white bg-white/15' : 'text-white/60 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              Chat
+            </button>
+            <button
+              onClick={() => setView('account')}
+              className={`px-3.5 flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider border-r border-white/15 transition-colors ${
+                view === 'account' ? 'text-white bg-white/15' : 'text-white/60 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              Compte
+            </button>
+          </nav>
+
+          {/* Spacer + méta + actions */}
+          <div className="flex-1 flex items-stretch justify-end">
             {view !== 'home' && (
               <button
                 onClick={() => setView('home')}
-                className="text-sm font-medium text-ink-2 hover:text-accent transition-colors flex items-center gap-1"
+                className="hidden sm:flex items-center gap-1.5 px-3 text-[11px] font-mono uppercase tracking-wider text-white/60 hover:text-white border-l border-white/15 transition-colors"
               >
-                <ArrowLeft size={16} />
-                Retour à l'accueil
+                <ArrowLeft size={13} />
+                Accueil
               </button>
             )}
-            <button
-              onClick={() => setIsMenuOpen((prev) => !prev)}
-              className="p-2 rounded-lg bg-surface-2 hover:bg-hairline transition-colors"
-              aria-label="Menu"
-            >
-              <Menu size={20} className="text-ink-2" />
-            </button>
-            {isMenuOpen && (
-              <div className="absolute right-0 top-12 w-40 bg-surface border border-hairline rounded-xl shadow-lg p-2 z-50">
-                <button
-                  onClick={() => setView('home')}
-                  className="w-full text-left px-3 py-2 rounded-lg text-sm text-ink-2 hover:bg-surface-2 transition-colors"
-                >
-                  Accueil
-                </button>
-                <button
-                  onClick={() => setView('account')}
-                  className="w-full text-left px-3 py-2 rounded-lg text-sm text-ink-2 hover:bg-surface-2 transition-colors"
-                >
-                  Mon compte
-                </button>
-              </div>
-            )}
+            <div className="hidden md:flex items-center px-3.5 border-l border-white/15">
+              <span className="font-mono text-[11px] text-white/70 tracking-tight truncate max-w-[280px]">
+                {(profile.name || profile.email || 'USER').toUpperCase()}
+                <span className="text-white/40 mx-1.5">·</span>
+                EPIBOT
+              </span>
+            </div>
+            <div className="flex items-stretch border-l border-white/15 relative">
+              <button
+                onClick={() => setIsMenuOpen((prev) => !prev)}
+                className="px-3 flex items-center hover:bg-white/10 transition-colors"
+                aria-label="Menu"
+              >
+                <Menu size={16} className="text-white/80" />
+              </button>
+              {isMenuOpen && (
+                <div className="absolute right-0 top-11 w-44 bg-surface border border-hairline-strong shadow-lg z-50">
+                  <button
+                    onClick={() => setView('home')}
+                    className="w-full text-left px-3.5 py-2 text-[11px] font-mono uppercase tracking-wider text-ink-2 hover:bg-surface-2 border-b border-hairline transition-colors"
+                  >
+                    Accueil
+                  </button>
+                  <button
+                    onClick={() => setView('account')}
+                    className="w-full text-left px-3.5 py-2 text-[11px] font-mono uppercase tracking-wider text-ink-2 hover:bg-surface-2 transition-colors"
+                  >
+                    Mon compte
+                  </button>
+                </div>
+              )}
+            </div>
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-lg bg-surface-2 hover:bg-hairline transition-colors"
+              className="px-3 flex items-center border-l border-white/15 hover:bg-white/10 transition-colors"
               aria-label="Toggle theme"
             >
-              {theme === 'light' ? <Moon size={20} className="text-ink-2" /> : <Sun size={20} className="text-maize" />}
+              {theme === 'light' ? <Moon size={16} className="text-white/80" /> : <Sun size={16} className="text-white" />}
             </button>
             <button
               onClick={signOut}
-              className="p-2 rounded-lg bg-surface-2 hover:bg-critical-soft hover:text-critical transition-colors"
+              className="px-3 flex items-center border-l border-white/15 text-white/70 hover:bg-white/10 hover:text-white transition-colors"
               aria-label="Se deconnecter"
               title="Se deconnecter"
             >
-              <LogOut size={20} className="text-ink-2" />
+              <LogOut size={16} />
             </button>
           </div>
         </div>
       </header>
 
       {/* Contenu Principal */}
-      <main className="max-w-[95%] mx-auto px-8 py-10">
+      <main className="mx-auto max-w-[1600px]">
         {view === 'home' ? (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-              {/* Section 1: Invitation au Chat (Hero) */}
-              <section className="lg:col-span-5 flex flex-col">
-                <div className="bg-surface rounded-3xl shadow-lg border border-hairline p-12 min-h-[600px] flex flex-col justify-center items-start text-left relative overflow-hidden transition-colors">
-                  <div className="absolute -top-20 -right-20 w-60 h-60 bg-accent-soft rounded-full blur-3xl opacity-60"></div>
-                  <div className="absolute bottom-0 left-0 w-48 h-48 bg-maize-soft rounded-full blur-2xl opacity-60"></div>
-
-                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent-soft text-accent-ink text-sm font-semibold mb-8">
-                    <Sparkles size={16} />
-                    Assistant pédagogique · collaboratif
-                  </div>
-
-                  <h1 className="font-display text-6xl font-semibold text-ink leading-[1.05] mb-6">
-                    Besoin d'aide ? <br />
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent to-maize">
-                      Discutez avec Epibot.
+          <div>
+            {/* Bloc d'accroche sobre */}
+            <section className="border-b border-hairline bg-surface">
+              <div className="px-5 py-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                <div className="max-w-2xl">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Sparkles size={13} className="text-accent" />
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-ink-3">
+                      Assistant pédagogique · collaboratif
                     </span>
+                  </div>
+                  <h1 className="font-display text-3xl font-semibold text-ink leading-tight mb-2">
+                    Besoin d'aide ? Discutez avec Epibot.
                   </h1>
-
-                  <p className="text-ink-2 text-xl mb-12 leading-relaxed max-w-lg">
+                  <p className="text-ink-2 text-sm leading-relaxed max-w-xl">
                     Posez vos questions sur les projets et les cours — seul ou à plusieurs. Epibot vous guide sans jamais faire le travail à votre place.
                   </p>
-
-                  <button
-                    onClick={() => setView('chat')}
-                    className="group relative w-full sm:w-auto flex items-center justify-center gap-3 bg-accent hover:bg-accent-ink text-white px-10 py-5 rounded-xl font-semibold text-lg transition-all shadow-lg shadow-accent/25 hover:shadow-accent/40 transform hover:-translate-y-0.5"
-                  >
-                    <MessageCircle size={24} />
-                    Commencer une discussion
-                    <ChevronRight size={18} className="opacity-0 group-hover:opacity-100 transition-opacity -ml-2 group-hover:ml-0" />
-                  </button>
                 </div>
-              </section>
+                <button
+                  onClick={() => setView('chat')}
+                  className="group flex items-center justify-center gap-2 bg-accent hover:bg-accent-ink on-accent px-5 py-2.5 rounded-[2px] font-medium text-sm transition-colors flex-shrink-0"
+                >
+                  <MessageCircle size={16} />
+                  Commencer une discussion
+                  <ChevronRight size={15} className="opacity-60 group-hover:opacity-100 transition-opacity" />
+                </button>
+              </div>
+            </section>
 
-              {/* Section 2: FAQ */}
-              <section className="lg:col-span-7">
-                <div className="flex items-center gap-3 mb-8">
-                  <div className="p-3 bg-maize-soft text-maize rounded-xl">
-                    <HelpCircle size={24} />
-                  </div>
-                  <h2 className="font-display text-4xl font-semibold text-ink">Questions fréquentes</h2>
+            {/* Grille FAQ / QCM en colonnes bordées */}
+            <div className="grid grid-cols-1 lg:grid-cols-2">
+              {/* Colonne FAQ générales */}
+              <section className="border-b lg:border-r border-hairline">
+                <div className="flex items-center gap-2 px-5 py-2.5 border-b border-hairline bg-surface">
+                  <HelpCircle size={13} className="text-ink-3" />
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-ink-3">
+                    Questions fréquentes
+                  </span>
+                  <span className="ml-auto font-num text-[11px] text-ink-3">{GENERAL_FAQS.length}</span>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="divide-y divide-hairline">
                   {GENERAL_FAQS.map((faq) => (
                     <GeneralFAQCard
                       key={faq.id}
@@ -698,18 +734,18 @@ export function ChatInterface() {
                     />
                   ))}
                 </div>
+              </section>
 
-                <div className="mt-10 flex items-center gap-3">
-                  <div className="p-2 bg-accent-soft text-accent-ink rounded-lg">
-                    <HelpCircle size={18} />
-                  </div>
-                  <h3 className="font-display text-2xl font-semibold text-ink">QCM Bases C</h3>
+              {/* Colonne QCM */}
+              <section className="border-b border-hairline">
+                <div className="flex items-center gap-2 px-5 py-2.5 border-b border-hairline bg-surface">
+                  <HelpCircle size={13} className="text-ink-3" />
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-ink-3">
+                    QCM Bases C
+                  </span>
+                  <span className="ml-auto font-num text-[11px] text-ink-3">{INITIAL_FAQS.length}</span>
                 </div>
-                <p className="mt-2 text-sm text-ink-3">
-                  Testez vos bases rapidement avant de poser une question.
-                </p>
-
-                <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="divide-y divide-hairline">
                   {INITIAL_FAQS.map((faq) => (
                     <FAQCard
                       key={faq.id}
@@ -718,57 +754,89 @@ export function ChatInterface() {
                     />
                   ))}
                 </div>
-
-                <div className="mt-8 bg-surface-2 rounded-xl p-6 flex items-start gap-4 border border-hairline transition-colors">
-                  <div className="mt-1">
-                    <img src="/epis_mais.png" alt="Epibot" className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-ink text-base mb-2">Le saviez-vous ?</h3>
-                    <p className="text-base text-ink-2 leading-relaxed">
-                      Vous pouvez désormais <b>partager une conversation</b> : invitez d'autres étudiants et interrogez Epibot ensemble, en temps réel.
-                    </p>
-                  </div>
-                </div>
               </section>
+            </div>
+
+            {/* Bandeau info */}
+            <div className="border-b border-hairline bg-surface-2 px-5 py-3 flex items-start gap-3">
+              <img src="/epis_mais.png" alt="Epibot" className="w-5 h-5 mt-0.5 flex-shrink-0" />
+              <div>
+                <span className="font-mono text-[10px] uppercase tracking-wider text-ink-3">Le saviez-vous ?</span>
+                <p className="text-sm text-ink-2 leading-relaxed mt-0.5">
+                  Vous pouvez désormais <b className="text-ink">partager une conversation</b> : invitez d'autres étudiants et interrogez Epibot ensemble, en temps réel.
+                </p>
+              </div>
             </div>
           </div>
         ) : view === 'chat' ? (
-          /* Vue Chat */
-          <div className="h-[calc(100vh-7rem)] flex gap-4">
-            {/* Sidebar conversations */}
-            <aside className="w-72 bg-surface rounded-2xl shadow-xl border border-hairline p-4 flex flex-col">
-              <button
-                onClick={() => createNewConversation('Nouvelle conversation')}
-                className="mb-4 flex items-center gap-2 text-sm font-semibold text-accent hover:text-accent-ink"
-              >
-                <Plus size={16} />
-                Nouvelle conversation
-              </button>
-              <div className="flex-1 overflow-y-auto space-y-1">
+          /* Vue Chat — station de travail dense */
+          <div className="h-[calc(100vh-2.75rem)] flex border-b border-hairline">
+            {/* Colonne gauche : liste des conversations */}
+            <aside className="w-64 flex-shrink-0 bg-surface border-r border-hairline flex flex-col">
+              <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline">
+                <span className="font-mono text-[10px] uppercase tracking-wider text-ink-3">
+                  Conversations
+                </span>
+                <button
+                  onClick={() => createNewConversation('Nouvelle conversation')}
+                  className="p-1 -mr-1 text-ink-2 hover:text-accent hover:bg-surface-2 rounded-[2px] transition-colors"
+                  title="Nouvelle conversation"
+                  aria-label="Nouvelle conversation"
+                >
+                  <Plus size={15} />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto">
                 {conversations.length === 0 && (
-                  <div className="text-xs text-ink-3">
+                  <div className="px-3.5 py-3 font-mono text-[11px] text-ink-3">
                     Aucune conversation
                   </div>
                 )}
                 {conversations.map((conv) => (
                   <div
                     key={conv.id}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                    className={`group flex items-stretch border-b border-hairline transition-colors ${
                       activeConversationId === conv.id
-                        ? 'bg-accent-soft text-accent-ink font-semibold'
-                        : 'hover:bg-surface-2 text-ink-2'
+                        ? 'bg-surface-2'
+                        : 'hover:bg-surface-2'
                     }`}
                   >
+                    {/* Liseré actif */}
+                    <span
+                      className={`w-[2px] flex-shrink-0 ${
+                        activeConversationId === conv.id ? 'bg-accent' : 'bg-transparent'
+                      }`}
+                    />
                     <button
                       onClick={() => setActiveConversationId(conv.id)}
-                      className="flex-1 text-left truncate flex items-center gap-1.5"
+                      className="flex-1 min-w-0 text-left px-3 py-2.5"
                       title={conv.title || 'Conversation'}
                     >
-                      {conv.is_owner === false && (
-                        <Users size={13} className="flex-shrink-0 text-positive" />
-                      )}
-                      <span className="truncate">{conv.title || 'Conversation'}</span>
+                      <div className="flex items-center gap-1.5">
+                        {conv.is_owner === false && (
+                          <Users size={12} className="flex-shrink-0 text-positive" />
+                        )}
+                        <span className={`truncate text-[13px] ${
+                          activeConversationId === conv.id ? 'text-ink font-medium' : 'text-ink-2'
+                        }`}>
+                          {conv.title || 'Conversation'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1 font-mono text-[10px] text-ink-3">
+                        {conv.is_owner === false ? (
+                          <span className="text-positive uppercase tracking-wide">Partagé</span>
+                        ) : (
+                          <span className="uppercase tracking-wide">Fil</span>
+                        )}
+                        {conv.created_at && (
+                          <>
+                            <span className="text-hairline-strong">·</span>
+                            <span className="font-num">
+                              {new Date(conv.created_at).toLocaleDateString([], { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </button>
                     {conv.is_owner !== false && (
                       <button
@@ -776,11 +844,11 @@ export function ChatInterface() {
                           e.stopPropagation();
                           handleDeleteConversation(conv.id);
                         }}
-                        className="p-1 rounded-md hover:bg-critical-soft text-ink-3 hover:text-critical"
+                        className="px-2 flex items-center text-ink-3 hover:text-critical hover:bg-critical-soft opacity-0 group-hover:opacity-100 transition-all"
                         title="Supprimer"
                         aria-label="Supprimer la conversation"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={13} />
                       </button>
                     )}
                   </div>
@@ -788,19 +856,21 @@ export function ChatInterface() {
               </div>
             </aside>
 
-            {/* Chat */}
-            <div className="flex-1 flex flex-col bg-surface rounded-2xl shadow-xl border border-hairline overflow-hidden transition-colors">
-              {/* Header du Chat */}
-              <div className="bg-gradient-to-r from-accent to-maize p-4 text-white flex items-center justify-between shadow-md z-10">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
-                    <img src="/epis_mais.png" alt="Epibot" className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="font-display font-semibold text-[15px] leading-tight">Epibot</h3>
-                    <div className="flex items-center gap-1.5 opacity-90">
-                      <span className="w-2 h-2 bg-emerald-300 rounded-full animate-pulse"></span>
-                      <span className="text-xs font-medium">
+            {/* Centre : le LOG de messages */}
+            <div className="flex-1 min-w-0 flex flex-col bg-ground">
+              {/* Barre d'en-tête du log */}
+              <div className="flex items-center justify-between px-4 py-2 bg-surface border-b border-hairline flex-shrink-0">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="w-6 h-6 bg-accent flex items-center justify-center flex-shrink-0">
+                    <img src="/epis_mais.png" alt="Epibot" className="w-4 h-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-display font-semibold text-[13px] text-ink leading-none">EPIBOT</span>
+                    </div>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <span className="w-1.5 h-1.5 bg-positive rounded-full animate-pulse"></span>
+                      <span className="font-mono text-[10px] uppercase tracking-wider text-ink-3">
                         {activeMembers.length > 1
                           ? `En ligne · ${activeMembers.length} participants`
                           : 'En ligne'}
@@ -809,111 +879,77 @@ export function ChatInterface() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {/* Présence : avatars empilés des membres */}
-                  {activeMembers.length > 1 && (
-                    <div className="hidden sm:flex items-center pr-1">
-                      {activeMembers.slice(0, 4).map((m, i) => (
-                        <div
-                          key={m.user_id}
-                          className="w-7 h-7 rounded-full border-2 flex items-center justify-center text-[11px] font-bold text-white overflow-hidden"
-                          style={{
-                            marginLeft: i === 0 ? 0 : -8,
-                            borderColor: 'color-mix(in oklab, var(--color-accent) 70%, #fff)',
-                            background: m.user_id === user?.id ? 'var(--color-maize)' : 'var(--color-positive)',
-                          }}
-                          title={m.user?.name || 'Étudiant'}
-                        >
-                          {m.user?.avatar_url ? (
-                            <img src={m.user.avatar_url} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            (m.user?.name || '?').slice(0, 1).toUpperCase()
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
                   {activeConversationId && (
                     <button
                       onClick={() => setShareOpen(true)}
-                      className="px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-lg transition-colors flex items-center gap-1.5 text-[13px] font-semibold"
+                      className="px-2.5 py-1.5 border border-hairline-strong hover:bg-surface-2 rounded-[2px] transition-colors flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-ink-2"
                       title="Partager la conversation"
                     >
-                      <Share2 size={16} />
+                      <Share2 size={13} />
                       <span className="hidden sm:inline">Partager</span>
                     </button>
                   )}
-                  <button onClick={() => setView('home')} className="p-2 hover:bg-white/15 rounded-full transition-colors">
-                    <X size={20} />
+                  <button
+                    onClick={() => setView('home')}
+                    className="p-1.5 hover:bg-surface-2 rounded-[2px] transition-colors text-ink-3 hover:text-ink"
+                    aria-label="Fermer"
+                  >
+                    <X size={16} />
                   </button>
                 </div>
               </div>
 
-              {/* Zone des messages */}
-              <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-surface-2 transition-colors">
+              {/* Zone des messages (log) */}
+              <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
                 {messages.map((msg) => {
                   // Mon message = à droite. Message d'un autre membre ou du bot = à gauche.
                   const isMine = msg.sender === 'user' && msg.isMine;
                   const isOther = msg.sender === 'user' && !msg.isMine;
                   const isBot = msg.sender === 'bot';
+                  const authorLabel = isBot ? 'EPIBOT' : isMine ? 'VOUS' : (msg.authorName || 'ÉTUDIANT').toUpperCase();
                   return (
                   <div
                     key={msg.id}
                     className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}
                   >
-                    <div className="max-w-[80%]">
-                      {/* Attribution de l'auteur : autres membres (nom) OU bot */}
-                      {(isOther || isBot) && (
-                        <div className="flex items-center gap-1.5 mb-1 ml-1">
-                          <div
-                            className="w-5 h-5 rounded-full overflow-hidden flex items-center justify-center text-[9px] font-bold text-white"
-                            style={{
-                              background: isBot
-                                ? 'linear-gradient(150deg, var(--color-accent), var(--color-maize))'
-                                : 'var(--color-positive)',
-                            }}
-                          >
-                            {isBot ? (
-                              <img src="/epis_mais.png" alt="" className="w-3.5 h-3.5" />
-                            ) : msg.authorAvatar ? (
-                              <img src={msg.authorAvatar} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              (msg.authorName || '?').slice(0, 1).toUpperCase()
-                            )}
-                          </div>
-                          <span className="text-xs font-medium text-ink-3">
-                            {isBot ? 'Epibot' : (msg.authorName || 'Étudiant')}
-                          </span>
-                        </div>
-                      )}
-                    <div className={`
-                      rounded-2xl p-4 shadow-sm
-                      ${isMine
-                        ? 'bg-accent text-white rounded-br-none'
-                        : isOther
-                        ? 'bg-positive-soft text-ink border border-positive/25 rounded-bl-none'
-                        : 'bg-surface text-ink border border-hairline rounded-bl-none'}
-                    `}>
-                      <div className="text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {msg.text}
-                        </ReactMarkdown>
+                    <div className="max-w-[78%] min-w-0">
+                      {/* Ligne label auteur + timestamp */}
+                      <div className={`flex items-center gap-2 mb-1 ${isMine ? 'justify-end' : 'justify-start'}`}>
+                        <span className={`font-mono text-[10px] uppercase tracking-wider ${
+                          isBot ? 'text-accent' : isOther ? 'text-positive' : 'text-ink-3'
+                        }`}>
+                          {authorLabel}
+                        </span>
+                        <span className="font-num text-[10px] text-ink-3">
+                          {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
                       </div>
-                      {msg.sender === 'bot' && msg.sources && msg.sources.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          {msg.sources.map((source) => (
-                            <span
-                              key={source}
-                              className="text-[10px] px-2 py-0.5 rounded-full bg-accent-soft text-accent-ink border border-accent/20"
-                            >
-                              📎 {source}
-                            </span>
-                          ))}
+                      <div className={`
+                        rounded-[2px] px-3.5 py-2.5 border
+                        ${isMine
+                          ? 'bg-accent-soft border-accent-soft'
+                          : isOther
+                          ? 'bg-surface border-l-2 border-l-positive border-hairline'
+                          : 'bg-surface border-l-2 border-l-accent border-hairline'}
+                      `}>
+                        <div className="text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none text-ink">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {msg.text}
+                          </ReactMarkdown>
                         </div>
-                      )}
-                      <span className={`text-[10px] block mt-2 ${isMine ? 'text-white/70' : 'text-ink-3'}`}>
-                        {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
+                        {msg.sender === 'bot' && msg.sources && msg.sources.length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-hairline flex flex-wrap gap-1.5">
+                            {msg.sources.map((source) => (
+                              <span
+                                key={source}
+                                className="font-mono text-[10px] px-1.5 py-0.5 rounded-[2px] bg-surface-2 text-ink-2 border border-hairline"
+                              >
+                                {source}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                   );
@@ -921,36 +957,39 @@ export function ChatInterface() {
 
                 {isTyping && (
                   <div className="flex justify-start">
-                    <div className="bg-surface border border-hairline rounded-2xl rounded-bl-none p-4 shadow-sm flex items-center gap-1 transition-colors">
-                      <span className="w-2 h-2 bg-ink-3 rounded-full animate-bounce"></span>
-                      <span className="w-2 h-2 bg-ink-3 rounded-full animate-bounce [animation-delay:0.2s]"></span>
-                      <span className="w-2 h-2 bg-ink-3 rounded-full animate-bounce [animation-delay:0.4s]"></span>
+                    <div className="bg-surface border border-hairline border-l-2 border-l-accent rounded-[2px] px-3.5 py-3 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 bg-ink-3 rounded-full animate-bounce"></span>
+                      <span className="w-1.5 h-1.5 bg-ink-3 rounded-full animate-bounce [animation-delay:0.2s]"></span>
+                      <span className="w-1.5 h-1.5 bg-ink-3 rounded-full animate-bounce [animation-delay:0.4s]"></span>
                     </div>
                   </div>
                 )}
                 <div ref={messagesEndRef} />
               </div>
 
+              {/* Barre de feedback */}
               {lastBotMessageId && !isTyping && (
-                <div className="px-4 py-2 bg-surface-2 border-t border-hairline text-xs text-ink-3 flex items-center gap-2">
+                <div className="px-4 py-2 bg-surface border-t border-hairline flex items-center gap-2 flex-shrink-0">
                   {lastFeedback ? (
-                    <span>
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-ink-3">
                       {lastFeedback === 'yes'
                         ? 'Merci pour votre retour.'
                         : 'Merci, votre retour nous aide à nous améliorer.'}
                     </span>
                   ) : (
                     <>
-                      <span>Cette réponse vous a-t-elle été utile ?</span>
+                      <span className="font-mono text-[10px] uppercase tracking-wider text-ink-3">
+                        Réponse utile ?
+                      </span>
                       <button
                         onClick={() => handleFeedback('yes')}
-                        className="px-2.5 py-1 rounded-md border text-xs font-medium transition-colors bg-surface border-hairline text-ink-2 hover:bg-positive-soft hover:text-positive hover:border-positive/30"
+                        className="px-2.5 py-1 rounded-[2px] border font-mono text-[10px] uppercase tracking-wider transition-colors bg-surface border-hairline text-ink-2 hover:bg-positive-soft hover:text-positive hover:border-positive/40"
                       >
                         Oui
                       </button>
                       <button
                         onClick={() => handleFeedback('no')}
-                        className="px-2.5 py-1 rounded-md border text-xs font-medium transition-colors bg-surface border-hairline text-ink-2 hover:bg-critical-soft hover:text-critical hover:border-critical/30"
+                        className="px-2.5 py-1 rounded-[2px] border font-mono text-[10px] uppercase tracking-wider transition-colors bg-surface border-hairline text-ink-2 hover:bg-critical-soft hover:text-critical hover:border-critical/40"
                       >
                         Non
                       </button>
@@ -958,8 +997,9 @@ export function ChatInterface() {
                   )}
                 </div>
               )}
+
               {/* Zone de saisie */}
-              <div className="p-4 bg-surface border-t border-hairline transition-colors">
+              <div className="px-3 py-3 bg-surface border-t border-hairline flex-shrink-0">
                 <form
                   onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }}
                   className="flex gap-2"
@@ -969,125 +1009,242 @@ export function ChatInterface() {
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
                     placeholder="Posez votre question à Epibot..."
-                    className="flex-1 bg-surface-2 border border-hairline focus:border-accent focus:ring-2 focus:ring-accent/20 rounded-xl px-4 py-3 outline-none transition-all text-ink placeholder:text-ink-3"
+                    className="flex-1 bg-surface-2 border border-hairline focus:border-accent rounded-[2px] px-3 py-2.5 text-sm outline-none transition-colors text-ink placeholder:text-ink-3"
                   />
                   <button
                     type="submit"
                     disabled={!inputValue.trim() || isTyping}
-                    className="bg-accent hover:bg-accent-ink disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl p-3 transition-colors flex items-center justify-center aspect-square"
+                    className="bg-accent hover:bg-accent-ink disabled:opacity-40 disabled:cursor-not-allowed on-accent rounded-[2px] px-3 transition-colors flex items-center justify-center"
                   >
-                    <Send size={20} />
+                    <Send size={17} />
                   </button>
                 </form>
               </div>
+
+              {/* Barre d'état inférieure */}
+              <div className="flex items-center gap-3 px-4 py-1.5 bg-surface-2 border-t border-hairline font-mono text-[10px] uppercase tracking-wider text-ink-3 flex-shrink-0">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 bg-positive rounded-full"></span>
+                  Connecté
+                </span>
+                <span className="text-hairline-strong">·</span>
+                <span>{messages.length} msg</span>
+                {activeMembers.length > 1 && (
+                  <>
+                    <span className="text-hairline-strong">·</span>
+                    <span>{activeMembers.length} membres</span>
+                  </>
+                )}
+                <span className="ml-auto truncate max-w-[220px]">
+                  {activeConversationId ? `ID ${activeConversationId.slice(0, 8)}` : 'Nouveau fil'}
+                </span>
+              </div>
             </div>
+
+            {/* Colonne droite : panneau contexte */}
+            <aside className="hidden xl:flex w-72 flex-shrink-0 bg-surface border-l border-hairline flex-col overflow-y-auto">
+              {/* Participants */}
+              <div className="border-b border-hairline">
+                <div className="flex items-center gap-2 px-3.5 py-2.5 border-b border-hairline">
+                  <Users size={12} className="text-ink-3" />
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-ink-3">Participants</span>
+                  <span className="ml-auto font-num text-[11px] text-ink-3">{activeMembers.length}</span>
+                </div>
+                <div>
+                  {activeMembers.length === 0 && (
+                    <div className="px-3.5 py-2.5 font-mono text-[11px] text-ink-3">Vous seul</div>
+                  )}
+                  {activeMembers.map((m) => (
+                    <div key={m.user_id} className="flex items-center gap-2.5 px-3.5 py-2 border-b border-hairline last:border-b-0">
+                      <div
+                        className="w-6 h-6 rounded-full overflow-hidden flex items-center justify-center text-[10px] font-bold on-accent flex-shrink-0"
+                        style={{ background: m.user_id === user?.id ? 'var(--color-accent)' : 'var(--color-positive)' }}
+                        title={m.user?.name || 'Étudiant'}
+                      >
+                        {m.user?.avatar_url ? (
+                          <img src={m.user.avatar_url} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          (m.user?.name || '?').slice(0, 1).toUpperCase()
+                        )}
+                      </div>
+                      <span className="text-[13px] text-ink-2 truncate flex-1">
+                        {m.user?.name || 'Étudiant'}
+                        {m.user_id === user?.id && <span className="text-ink-3"> (vous)</span>}
+                      </span>
+                      <span className="font-mono text-[9px] uppercase tracking-wider text-ink-3 flex-shrink-0">
+                        {m.role === 'owner' ? 'Owner' : 'Membre'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Sources RAG du dernier message bot */}
+              {(() => {
+                const lastBot = [...messages].reverse().find((m) => m.sender === 'bot' && m.sources && m.sources.length > 0);
+                return (
+                  <div className="border-b border-hairline">
+                    <div className="flex items-center gap-2 px-3.5 py-2.5 border-b border-hairline">
+                      <span className="font-mono text-[10px] uppercase tracking-wider text-ink-3">Sources RAG</span>
+                      <span className="ml-auto font-num text-[11px] text-ink-3">{lastBot?.sources?.length ?? 0}</span>
+                    </div>
+                    <div>
+                      {lastBot?.sources && lastBot.sources.length > 0 ? (
+                        lastBot.sources.map((source) => (
+                          <div key={source} className="px-3.5 py-2 border-b border-hairline last:border-b-0 font-mono text-[11px] text-ink-2 truncate" title={source}>
+                            {source}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="px-3.5 py-2.5 font-mono text-[11px] text-ink-3">Aucune source</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Statut du garde-fou */}
+              <div>
+                <div className="flex items-center gap-2 px-3.5 py-2.5 border-b border-hairline">
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-ink-3">Garde-fou</span>
+                </div>
+                <div className="px-3.5 py-2.5 flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-positive rounded-full"></span>
+                  <span className="font-mono text-[11px] uppercase tracking-wider text-positive">Actif</span>
+                </div>
+                <p className="px-3.5 pb-3 text-[11px] text-ink-3 leading-relaxed">
+                  Epibot guide sans jamais faire le travail à votre place. Les contournements sont signalés.
+                </p>
+              </div>
+            </aside>
           </div>
         ) : (
-          <div className="max-w-4xl mx-auto">
-            <div className="bg-surface rounded-2xl shadow-xl border border-hairline p-8 transition-colors">
-              <h2 className="font-display text-2xl font-semibold text-ink mb-6">Mon compte</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-4">
+          <div className="max-w-5xl mx-auto border-x border-hairline min-h-[calc(100vh-2.75rem)]">
+            {/* En-tête section compte */}
+            <div className="flex items-center gap-2 px-5 py-2.5 border-b border-hairline bg-surface">
+              <span className="font-mono text-[10px] uppercase tracking-wider text-ink-3">Mon compte</span>
+              <span className="ml-auto font-num text-[11px] text-ink-3 truncate max-w-[240px]">{profile.email}</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2">
+              {/* Panneau : Identité / avatar */}
+              <div className="border-b md:border-r border-hairline">
+                <div className="px-5 py-2 border-b border-hairline bg-surface-2">
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-ink-3">Identité</span>
+                </div>
+                <div className="p-5 space-y-4">
                   <div className="flex items-center gap-4">
-                    <div className="w-20 h-20 rounded-full bg-surface-2 overflow-hidden flex items-center justify-center">
+                    <div className="w-16 h-16 rounded-[2px] bg-surface-2 border border-hairline overflow-hidden flex items-center justify-center flex-shrink-0">
                       {avatarPreview ? (
                         <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
                       ) : (
-                        <span className="text-2xl font-bold text-ink-2">
+                        <span className="text-xl font-bold text-ink-2 font-display">
                           {(profile.name || profile.email || 'U').slice(0, 1).toUpperCase()}
                         </span>
                       )}
                     </div>
                     <div>
-                      <p className="text-sm text-ink-3">Avatar</p>
-                      <label className="text-sm font-medium text-accent cursor-pointer">
+                      <p className="font-mono text-[10px] uppercase tracking-wider text-ink-3 mb-1">Avatar</p>
+                      <label className="inline-flex items-center px-2.5 py-1 border border-hairline-strong rounded-[2px] font-mono text-[10px] uppercase tracking-wider text-ink-2 hover:bg-surface-2 cursor-pointer transition-colors">
                         Changer
                         <input type="file" accept="image/*" className="hidden" onChange={handleAvatarFile} />
                       </label>
                     </div>
                   </div>
                   <div>
-                    <label className="text-sm text-ink-3">URL de l'avatar</label>
+                    <label className="font-mono text-[10px] uppercase tracking-wider text-ink-3">URL de l'avatar</label>
                     <input
                       type="text"
                       value={avatarUrl}
                       onChange={(e) => handleAvatarUrl(e.target.value)}
                       placeholder="https://..."
-                      className="mt-1 w-full bg-surface-2 border border-hairline focus:border-accent rounded-lg px-3 py-2 text-sm text-ink placeholder:text-ink-3 outline-none"
+                      className="mt-1.5 w-full bg-surface-2 border border-hairline focus:border-accent rounded-[2px] px-3 py-2 text-sm text-ink placeholder:text-ink-3 outline-none transition-colors"
                     />
                   </div>
                 </div>
-                <div className="space-y-4">
+              </div>
+
+              {/* Panneau : Profil */}
+              <div className="border-b border-hairline">
+                <div className="px-5 py-2 border-b border-hairline bg-surface-2">
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-ink-3">Profil</span>
+                </div>
+                <div className="p-5 space-y-4">
                   <div>
-                    <label className="text-sm text-ink-3">Nom</label>
+                    <label className="font-mono text-[10px] uppercase tracking-wider text-ink-3">Nom</label>
                     <input
                       type="text"
                       value={profile.name}
                       onChange={(e) => setProfile((prev) => ({ ...prev, name: e.target.value }))}
-                      className="mt-1 w-full bg-surface-2 border border-hairline focus:border-accent rounded-lg px-3 py-2 text-sm text-ink outline-none"
+                      className="mt-1.5 w-full bg-surface-2 border border-hairline focus:border-accent rounded-[2px] px-3 py-2 text-sm text-ink outline-none transition-colors"
                     />
                   </div>
                   <div>
-                    <label className="text-sm text-ink-3">Email</label>
+                    <label className="font-mono text-[10px] uppercase tracking-wider text-ink-3">Email</label>
                     <input
                       type="email"
                       value={profile.email}
                       readOnly
-                      className="mt-1 w-full bg-surface-2 border border-hairline rounded-lg px-3 py-2 text-sm text-ink-3 cursor-not-allowed"
+                      className="mt-1.5 w-full bg-surface-2 border border-hairline rounded-[2px] px-3 py-2 text-sm text-ink-3 cursor-not-allowed font-mono"
                     />
                   </div>
-                  <div className="text-sm text-ink-2">
-                    Temps de connexion : <span className="font-semibold tnum">{formatDuration(sessionSeconds)}</span>
+                  <div className="flex items-center gap-2 py-1">
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-ink-3">Temps de session</span>
+                    <span className="ml-auto font-num text-sm text-ink tnum">{formatDuration(sessionSeconds)}</span>
                   </div>
                   <button
                     type="button"
-                    className="mt-2 px-4 py-2 bg-accent hover:bg-accent-ink text-white text-sm font-medium rounded-lg transition-colors"
+                    className="px-4 py-2 bg-accent hover:bg-accent-ink on-accent text-sm font-medium rounded-[2px] transition-colors"
                   >
                     Enregistrer
                   </button>
-
-                  {/* Extension VS Code : token de surveillance anti-collage */}
-                  <div className="mt-6 pt-6 border-t border-hairline">
-                    <div className="flex items-start gap-2 mb-2">
-                      <div className="text-sm font-semibold text-ink">Extension VS Code</div>
-                    </div>
-                    <p className="text-xs text-ink-3 mb-3 leading-relaxed">
-                      Générez un token pour connecter l'extension VS Code à votre compte.
-                      Elle signale les collages massifs de code à l'équipe pédagogique.
-                    </p>
-                    {extToken ? (
-                      <div className="flex gap-2">
-                        <input
-                          readOnly
-                          value={extToken}
-                          onFocus={(e) => e.currentTarget.select()}
-                          className="flex-1 bg-surface-2 border border-hairline rounded-lg px-3 py-2 text-xs font-mono text-ink-2 truncate"
-                        />
-                        <button
-                          type="button"
-                          onClick={handleCopyExtToken}
-                          className="px-3 py-2 rounded-lg bg-accent hover:bg-accent-ink text-white text-xs font-medium whitespace-nowrap"
-                        >
-                          {extTokenCopied ? 'Copié ✓' : 'Copier'}
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={handleGenerateExtToken}
-                        disabled={extTokenLoading}
-                        className="px-4 py-2 bg-surface-2 hover:bg-hairline border border-hairline text-ink text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
-                      >
-                        {extTokenLoading ? 'Génération…' : 'Générer un token VS Code'}
-                      </button>
-                    )}
-                    {extToken && (
-                      <p className="text-xs text-watch mt-2">
-                        ⚠️ Copiez-le maintenant : collez-le dans les réglages de l'extension.
-                      </p>
-                    )}
-                  </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Panneau : Extension VS Code */}
+            <div className="border-b border-hairline">
+              <div className="px-5 py-2 border-b border-hairline bg-surface-2">
+                <span className="font-mono text-[10px] uppercase tracking-wider text-ink-3">Extension VS Code</span>
+              </div>
+              <div className="p-5">
+                <p className="text-sm text-ink-2 mb-3 leading-relaxed max-w-2xl">
+                  Générez un token pour connecter l'extension VS Code à votre compte.
+                  Elle signale les collages massifs de code à l'équipe pédagogique.
+                </p>
+                {extToken ? (
+                  <div className="flex gap-2 max-w-2xl">
+                    <input
+                      readOnly
+                      value={extToken}
+                      onFocus={(e) => e.currentTarget.select()}
+                      className="flex-1 bg-surface-2 border border-hairline rounded-[2px] px-3 py-2 text-xs font-mono text-ink-2 truncate"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleCopyExtToken}
+                      className="px-3 py-2 rounded-[2px] bg-accent hover:bg-accent-ink on-accent text-xs font-medium whitespace-nowrap transition-colors"
+                    >
+                      {extTokenCopied ? 'Copié ✓' : 'Copier'}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleGenerateExtToken}
+                    disabled={extTokenLoading}
+                    className="px-4 py-2 bg-surface-2 hover:bg-hairline border border-hairline-strong text-ink text-sm font-medium rounded-[2px] transition-colors disabled:opacity-50"
+                  >
+                    {extTokenLoading ? 'Génération…' : 'Générer un token VS Code'}
+                  </button>
+                )}
+                {extToken && (
+                  <div className="mt-2 flex items-center gap-2 px-2.5 py-1.5 bg-watch-soft border border-watch/40 rounded-[2px] max-w-2xl">
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-watch">
+                      Copiez-le maintenant : collez-le dans les réglages de l'extension.
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1112,36 +1269,38 @@ const GeneralFAQCard = ({ faq, onAsk }: { faq: GeneralFAQItem; onAsk: () => void
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="bg-surface border border-hairline rounded-xl p-6 hover:shadow-lg hover:border-accent/30 transition-all cursor-pointer group min-h-[140px] flex flex-col" onClick={() => setIsOpen(!isOpen)}>
-      <div className="flex justify-between items-start gap-3 flex-1">
-        <div className="flex-1">
-          <span className="inline-block px-3 py-1 rounded-md text-xs font-bold uppercase tracking-wider bg-surface-2 text-ink-3 mb-3">
+    <div className="group transition-colors hover:bg-surface-2 cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
+      <div className="flex items-start gap-3 px-5 py-3">
+        <div className={`text-ink-3 mt-0.5 transition-transform duration-200 flex-shrink-0 ${isOpen ? 'rotate-90 text-accent' : ''}`}>
+          <ChevronRight size={15} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <span className="font-mono text-[10px] uppercase tracking-wider text-ink-3">
             {faq.category}
           </span>
-          <h3 className="font-semibold text-lg text-ink group-hover:text-accent transition-colors leading-snug">
+          <h3 className="text-sm font-medium text-ink group-hover:text-accent transition-colors leading-snug mt-0.5">
             {faq.question}
           </h3>
         </div>
-        <div className={`text-ink-3 transition-transform duration-300 flex-shrink-0 ${isOpen ? 'rotate-90' : ''}`}>
-          <ChevronRight size={20} />
-        </div>
       </div>
 
-      <div className={`grid transition-all duration-300 ease-in-out ${isOpen ? 'grid-rows-[1fr] opacity-100 mt-4' : 'grid-rows-[0fr] opacity-0'}`}>
+      <div className={`grid transition-all duration-200 ease-in-out ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
         <div className="overflow-hidden">
-          <p className="text-base text-ink-2 bg-surface-2 p-4 rounded-lg border border-hairline leading-relaxed">
-            {faq.answer}
-          </p>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onAsk();
-            }}
-            className="text-sm font-medium text-accent mt-3 hover:underline flex items-center gap-2"
-          >
-            <MessageCircle size={14} />
-            Poser cette question dans le chat
-          </button>
+          <div className="px-5 pb-3 pl-[2.75rem]">
+            <p className="text-sm text-ink-2 bg-surface-2 px-3 py-2.5 rounded-[2px] border-l-2 border-accent border-y border-r border-hairline leading-relaxed">
+              {faq.answer}
+            </p>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onAsk();
+              }}
+              className="font-mono text-[10px] uppercase tracking-wider text-accent mt-2.5 hover:underline flex items-center gap-1.5"
+            >
+              <MessageCircle size={13} />
+              Poser dans le chat
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1155,62 +1314,64 @@ const FAQCard = ({ faq, onAsk }: { faq: FAQItem; onAsk: () => void }) => {
   const isCorrect = selectedIndex !== null && selectedIndex === faq.correctIndex;
 
   return (
-    <div className="bg-surface border border-hairline rounded-xl p-6 hover:shadow-lg hover:border-accent/30 transition-all cursor-pointer group min-h-[140px] flex flex-col" onClick={() => setIsOpen(!isOpen)}>
-      <div className="flex justify-between items-start gap-3 flex-1">
-        <div className="flex-1">
-          <span className="inline-block px-3 py-1 rounded-md text-xs font-bold uppercase tracking-wider bg-surface-2 text-ink-3 mb-3">
+    <div className="group transition-colors hover:bg-surface-2 cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
+      <div className="flex items-start gap-3 px-5 py-3">
+        <div className={`text-ink-3 mt-0.5 transition-transform duration-200 flex-shrink-0 ${isOpen ? 'rotate-90 text-accent' : ''}`}>
+          <ChevronRight size={15} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <span className="font-mono text-[10px] uppercase tracking-wider text-ink-3">
             {faq.category}
           </span>
-          <h3 className="font-semibold text-lg text-ink group-hover:text-accent transition-colors leading-snug">
+          <h3 className="text-sm font-medium text-ink group-hover:text-accent transition-colors leading-snug mt-0.5">
             {faq.question}
           </h3>
         </div>
-        <div className={`text-ink-3 transition-transform duration-300 flex-shrink-0 ${isOpen ? 'rotate-90' : ''}`}>
-          <ChevronRight size={20} />
-        </div>
       </div>
 
-      <div className={`grid transition-all duration-300 ease-in-out ${isOpen ? 'grid-rows-[1fr] opacity-100 mt-4' : 'grid-rows-[0fr] opacity-0'}`}>
+      <div className={`grid transition-all duration-200 ease-in-out ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
         <div className="overflow-hidden">
-          <div className="space-y-2">
-            {faq.options.map((option, idx) => (
-              <button
-                key={option}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedIndex(idx);
-                }}
-                className={`w-full text-left px-3 py-2 rounded-lg border text-sm transition-colors ${
-                  selectedIndex === idx
-                    ? (idx === faq.correctIndex
-                        ? 'border-positive bg-positive-soft text-positive'
-                        : 'border-critical bg-critical-soft text-critical')
-                    : 'border-hairline bg-surface-2 text-ink-2 hover:bg-hairline'
-                }`}
-              >
-                {option}
-              </button>
-            ))}
+          <div className="px-5 pb-3 pl-[2.75rem]">
+            <div className="space-y-1.5">
+              {faq.options.map((option, idx) => (
+                <button
+                  key={option}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedIndex(idx);
+                  }}
+                  className={`w-full text-left px-3 py-2 rounded-[2px] border text-sm transition-colors ${
+                    selectedIndex === idx
+                      ? (idx === faq.correctIndex
+                          ? 'border-positive bg-positive-soft text-positive'
+                          : 'border-critical bg-critical-soft text-critical')
+                      : 'border-hairline bg-surface-2 text-ink-2 hover:bg-hairline'
+                  }`}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+            {selectedIndex !== null && (
+              <p className={`mt-2.5 text-sm px-3 py-2 rounded-[2px] border-l-2 border-y border-r ${
+                isCorrect
+                  ? 'border-l-positive border-positive/40 bg-positive-soft text-positive'
+                  : 'border-l-watch border-watch/40 bg-watch-soft text-watch'
+              }`}>
+                {isCorrect ? 'Bonne réponse.' : 'Pas tout à fait.'} {faq.answer}
+              </p>
+            )}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onAsk();
+              }}
+              className="font-mono text-[10px] uppercase tracking-wider text-accent mt-2.5 hover:underline flex items-center gap-1.5"
+            >
+              <MessageCircle size={13} />
+              Poser dans le chat
+            </button>
           </div>
-          {selectedIndex !== null && (
-            <p className={`mt-3 text-sm px-3 py-2 rounded-lg border ${
-              isCorrect
-                ? 'border-positive/40 bg-positive-soft text-positive'
-                : 'border-watch/40 bg-watch-soft text-watch'
-            }`}>
-              {isCorrect ? 'Bonne réponse.' : 'Pas tout à fait.'} {faq.answer}
-            </p>
-          )}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onAsk();
-            }}
-            className="text-sm font-medium text-accent mt-3 hover:underline flex items-center gap-2"
-          >
-            <MessageCircle size={14} />
-            Poser cette question dans le chat
-          </button>
         </div>
       </div>
     </div>

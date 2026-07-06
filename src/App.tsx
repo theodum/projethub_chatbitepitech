@@ -51,7 +51,7 @@ function App() {
   if (authLoading || roleLoading || profileLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-slate-600">Chargement...</p>
+        <p className="font-mono text-sm text-ink-3">Chargement…</p>
       </div>
     );
   }
