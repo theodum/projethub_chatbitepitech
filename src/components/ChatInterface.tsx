@@ -1102,20 +1102,6 @@ export function ChatInterface() {
                   </div>
                 );
               })()}
-
-              {/* Statut du garde-fou */}
-              <div>
-                <div className="flex items-center gap-2 px-3.5 py-2.5 border-b border-hairline">
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-ink-3">Garde-fou</span>
-                </div>
-                <div className="px-3.5 py-2.5 flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 bg-positive rounded-full"></span>
-                  <span className="font-mono text-[11px] uppercase tracking-wider text-positive">Actif</span>
-                </div>
-                <p className="px-3.5 pb-3 text-[11px] text-ink-3 leading-relaxed">
-                  Epibot guide sans jamais faire le travail à votre place. Les contournements sont signalés.
-                </p>
-              </div>
             </aside>
           </div>
         ) : (
