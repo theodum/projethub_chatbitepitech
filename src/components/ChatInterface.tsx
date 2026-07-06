@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { MessageCircle, HelpCircle, Send, ArrowLeft, ChevronRight, Sparkles, X, Sun, Moon, LogOut, Menu, Plus, Trash2, Users, Share2 } from 'lucide-react';
+import { MessageCircle, HelpCircle, Send, ArrowLeft, ChevronRight, Sparkles, X, Sun, Moon, LogOut, Menu, Plus, Trash2, Users, Share2, Paperclip, FileText } from 'lucide-react';
 import { createMessage, updateMessage, updateMessageFeedback } from '../services/messagesService';
 import { useTheme } from '../hooks/useTheme';
-import { sendMessageStream } from '../services/aiService';
+import { sendMessageStream, extractFileText } from '../services/aiService';
 import { useAuth } from '../contexts/AuthContext';
 import { createConversation, deleteConversation, getMessagesByConversation, getUserConversations, getConversationMembers } from '../services/conversationsService';
 import { acceptInvite } from '../services/invitesService';
@@ -201,6 +201,9 @@ export function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([WELCOME_MESSAGE]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [attachment, setAttachment] = useState<{ name: string; text: string; readable: boolean } | null>(null);
+  const [attachLoading, setAttachLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -365,13 +368,44 @@ export function ChatInterface() {
     }
   };
 
+  // Sélection d'un fichier à joindre : on en extrait le texte via le backend.
+  const handleAttachFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (!file) return;
+    setAttachLoading(true);
+    try {
+      const extracted = await extractFileText(file);
+      setAttachment({ name: extracted.filename, text: extracted.content, readable: extracted.readable });
+    } catch (e) {
+      console.error('Erreur extraction fichier:', e);
+      alert(e instanceof Error ? e.message : "Impossible de lire ce fichier.");
+    } finally {
+      setAttachLoading(false);
+    }
+  };
+
   const handleSendMessage = async (text: string = inputValue) => {
-    if (!text.trim()) return;
+    // Un fichier joint suffit à envoyer, même sans texte.
+    const sentAttachment = attachment;
+    if (!text.trim() && !sentAttachment) return;
+
+    // Texte affiché/sauvegardé : la question + une mention du fichier (pas tout le contenu).
+    const displayText = sentAttachment
+      ? `${text}${text.trim() ? '\n\n' : ''}📎 ${sentAttachment.name}`
+      : text;
+
+    // Texte envoyé à l'IA : question + contenu extrait du fichier (si lisible).
+    const aiText = sentAttachment && sentAttachment.readable
+      ? `${text}\n\n[Fichier joint : ${sentAttachment.name}]\n\`\`\`\n${sentAttachment.text}\n\`\`\``
+      : sentAttachment
+        ? `${text}\n\n[L'étudiant a joint le fichier « ${sentAttachment.name} » mais son contenu n'est pas lisible (image ou binaire).]`
+        : text;
 
     const localUserMsgId = Date.now();
     const newUserMsg: Message = {
       id: localUserMsgId,
-      text: text,
+      text: displayText,
       sender: 'user',
       timestamp: new Date(),
       isMine: true,
@@ -381,6 +415,7 @@ export function ChatInterface() {
 
     setMessages(prev => [...prev, newUserMsg]);
     setInputValue('');
+    setAttachment(null);
     setIsTyping(true);
 
     const currentUserId = user?.id || null;
@@ -389,10 +424,10 @@ export function ChatInterface() {
     try {
       let conversationId = activeConversationId;
       if (!conversationId) {
-        conversationId = await createNewConversation(text.slice(0, 48));
+        conversationId = await createNewConversation((displayText || 'Fichier').slice(0, 48));
       }
       const savedUser = await createMessage({
-        content: text,
+        content: displayText,
         user_id: currentUserId, // Utiliser l'ID de l'utilisateur connecté
         conversation_id: conversationId,
       });
@@ -432,7 +467,8 @@ export function ChatInterface() {
         }));
 
       // Le message courant est le mien -> même préfixe nominatif en conversation partagée.
-      const outgoing = isShared ? `${myName} : ${text}` : text;
+      // On envoie aiText (question + contenu du fichier joint) à l'IA.
+      const outgoing = isShared ? `${myName} : ${aiText}` : aiText;
 
       // Streamer la réponse mot à mot ; la bulle du bot est créée au 1er token
       const botMsgId = Date.now() + 1;
@@ -1009,10 +1045,51 @@ export function ChatInterface() {
 
               {/* Zone de saisie */}
               <div className="px-3 py-3 bg-surface border-t border-hairline flex-shrink-0">
+                {/* Prévisualisation du fichier joint */}
+                {(attachment || attachLoading) && (
+                  <div className="mb-2 flex items-center gap-2 bg-surface-2 border border-hairline rounded-[2px] px-2.5 py-1.5 text-[12px]">
+                    <FileText size={14} className="text-accent shrink-0" />
+                    {attachLoading ? (
+                      <span className="text-ink-3 font-mono">Lecture du fichier…</span>
+                    ) : (
+                      <>
+                        <span className="text-ink truncate flex-1 font-mono">{attachment!.name}</span>
+                        {!attachment!.readable && (
+                          <span className="text-watch text-[10px] uppercase tracking-wider font-mono shrink-0">
+                            non lisible par l'IA
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setAttachment(null)}
+                          className="text-ink-3 hover:text-critical shrink-0"
+                          title="Retirer"
+                        >
+                          <X size={14} />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
                 <form
                   onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }}
                   className="flex gap-2"
                 >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={handleAttachFile}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={attachLoading}
+                    title="Joindre un fichier"
+                    className="bg-surface-2 border border-hairline hover:border-accent text-ink-2 hover:text-accent disabled:opacity-40 rounded-[2px] px-2.5 transition-colors flex items-center justify-center"
+                  >
+                    <Paperclip size={16} />
+                  </button>
                   <input
                     type="text"
                     value={inputValue}
@@ -1022,7 +1099,7 @@ export function ChatInterface() {
                   />
                   <button
                     type="submit"
-                    disabled={!inputValue.trim() || isTyping}
+                    disabled={(!inputValue.trim() && !attachment) || isTyping}
                     className="bg-accent hover:bg-accent-ink disabled:opacity-40 disabled:cursor-not-allowed on-accent rounded-[2px] px-3 transition-colors flex items-center justify-center"
                   >
                     <Send size={17} />

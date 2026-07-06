@@ -15,6 +15,34 @@ export interface ChatResult {
   flagged: boolean;
 }
 
+export interface ExtractedFile {
+  filename: string;
+  content: string;
+  size: number;
+  readable: boolean;   // false = fichier non lisible par l'IA (image, binaire…)
+  truncated: boolean;
+}
+
+/**
+ * Envoie un fichier joint au backend pour en extraire le texte (code, txt, md, PDF…).
+ * Retourne le texte extrait, qui sera attaché à la question envoyée à l'IA.
+ */
+export async function extractFileText(file: File): Promise<ExtractedFile> {
+  const form = new FormData();
+  form.append('file', file);
+  let res: Response;
+  try {
+    res = await fetch('/api/chat/upload', { method: 'POST', body: form });
+  } catch (error) {
+    throw toClientError(error);
+  }
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || err.error || `Erreur ${res.status}`);
+  }
+  return res.json();
+}
+
 function toClientError(error: unknown): Error {
   if (error instanceof TypeError && error.message.includes('fetch')) {
     return new Error('Impossible de se connecter au backend. Assurez-vous que le serveur est demarre (npm run dev:api)');

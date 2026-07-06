@@ -218,29 +218,60 @@ async def chat_stream(request: ChatRequest):
     return StreamingResponse(event_stream(), media_type="application/x-ndjson")
 
 
+MAX_ATTACH_BYTES = 2 * 1024 * 1024   # 2 Mo : garde-fou taille
+MAX_EXTRACT_CHARS = 20000            # texte injecté à l'IA (évite d'exploser les tokens)
+
+
 @router.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
     """
-    Endpoint pour uploader un fichier texte
+    Extrait le texte d'un fichier joint au chat (code, .txt, .md, PDF…).
+    Réutilise l'extraction d'ingestion (pypdf pour les PDF, décodage tolérant sinon).
+    Le contenu extrait est renvoyé au frontend, qui l'attache à la question.
     """
+    from services.ingestion_service import extract_text
+
+    filename = file.filename or "fichier"
+    content = await file.read()
+    if len(content) > MAX_ATTACH_BYTES:
+        raise HTTPException(status_code=400, detail="Fichier trop volumineux (max 2 Mo).")
+
+    # Détection binaire : un octet nul ou trop de caractères de contrôle => pas du texte.
+    def looks_binary(raw: bytes) -> bool:
+        if b"\x00" in raw[:4096]:
+            return True
+        sample = raw[:4096]
+        if not sample:
+            return False
+        # Octets considérés "texte" : tab, LF, CR, FF, ESC + imprimables >= 0x20.
+        text_chars = {7, 8, 9, 10, 12, 13, 27} | set(range(0x20, 0x100))
+        nontext = sum(1 for b in sample if b not in text_chars)
+        return nontext / len(sample) > 0.30
+
+    is_pdf = filename.lower().endswith(".pdf")
+    if not is_pdf and looks_binary(content):
+        # Image / binaire / format non supporté : partagé dans le fil mais illisible par l'IA.
+        return {"filename": filename, "content": "", "size": len(content), "readable": False, "truncated": False}
+
     try:
-        # Vérifier le type de fichier
-        if not file.content_type or 'text' not in file.content_type:
-            raise HTTPException(status_code=400, detail="Seuls les fichiers texte sont acceptés")
+        text_content = extract_text(filename, content)
+    except Exception:
+        text_content = ""
 
-        # Lire le contenu du fichier
-        content = await file.read()
-        text_content = content.decode('utf-8')
+    text_content = (text_content or "").strip()
+    truncated = len(text_content) > MAX_EXTRACT_CHARS
+    if truncated:
+        text_content = text_content[:MAX_EXTRACT_CHARS]
 
-        return {
-            "filename": file.filename,
-            "content": text_content,
-            "size": len(text_content)
-        }
-    except UnicodeDecodeError:
-        raise HTTPException(status_code=400, detail="Le fichier doit être encodé en UTF-8")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    readable = bool(text_content)
+
+    return {
+        "filename": filename,
+        "content": text_content,
+        "size": len(content),
+        "readable": readable,     # False = fichier non exploitable par l'IA (image, binaire…)
+        "truncated": truncated,
+    }
 
 
 @router.get("/health")

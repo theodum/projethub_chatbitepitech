@@ -1,0 +1,70 @@
+{
+  "name": "epibot-chat",
+  "displayName": "Epibot — Assistant pédagogique",
+  "description": "Epibot dans VS Code : pose tes questions sur les projets, joins ton code, réponses basées sur tes documents (RAG). Il t'oriente sans faire le travail à ta place.",
+  "version": "0.1.0",
+  "publisher": "epitech",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other", "Machine Learning"],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "epibot",
+          "title": "Epibot",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "epibot": [
+        {
+          "type": "webview",
+          "id": "epibot.chat",
+          "name": "Assistant"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "epibotChat.setToken",
+        "title": "Epibot : Configurer le token"
+      },
+      {
+        "command": "epibotChat.attachSelection",
+        "title": "Epibot : Envoyer la sélection à Epibot"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "epibotChat.attachSelection",
+          "when": "editorHasSelection",
+          "group": "epibot"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Epibot Chat",
+      "properties": {
+        "epibotChat.apiUrl": {
+          "type": "string",
+          "default": "http://localhost:3001",
+          "description": "URL du backend Epibot."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20.x",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.4.0"
+  }
+}

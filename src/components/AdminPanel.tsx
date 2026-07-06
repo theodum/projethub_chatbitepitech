@@ -250,7 +250,7 @@ export function AdminPanel() {
     };
 
     return (
-      <div className="p-5 max-w-[1180px] mx-auto animate-in fade-in duration-300">
+      <div className="p-6 max-w-[1600px] mx-auto w-full animate-in fade-in duration-300">
         <div className="flex items-baseline gap-3">
           <h1 className="font-display text-base text-ink">Vue d'ensemble</h1>
           <span className="font-num text-[11.5px] text-ink-3">admin / dashboard · 7 derniers jours</span>
@@ -382,7 +382,7 @@ export function AdminPanel() {
     const colors = ['bg-accent', 'bg-ink-3', 'bg-positive', 'bg-watch', 'bg-critical'];
 
     return (
-      <div className="flex-1 overflow-y-auto p-5 max-w-[1180px] mx-auto animate-in fade-in duration-300">
+      <div className="flex-1 overflow-y-auto p-6 max-w-[1600px] mx-auto w-full animate-in fade-in duration-300">
         <div className="flex items-baseline justify-between gap-3">
           <div className="flex items-baseline gap-3">
             <h1 className="font-display text-base text-ink">Tendances & Statistiques</h1>
@@ -524,14 +524,14 @@ export function AdminPanel() {
     );
 
     return (
-      <div className="flex-1 overflow-y-auto p-5 max-w-[1180px] mx-auto animate-in fade-in duration-300">
+      <div className="flex-1 overflow-y-auto p-6 max-w-[1600px] mx-auto w-full animate-in fade-in duration-300">
         <div className="flex items-baseline gap-3">
           <h1 className="font-display text-base text-ink">Qualité & feedback</h1>
           <span className="font-num text-[11.5px] text-ink-3">admin / quality · feedback des réponses</span>
         </div>
         <p className="text-[12.5px] text-ink-2 mt-1 mb-4">Ce que le chatbot réussit, et ce qu'il faut améliorer.</p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
           <Tile
             accent="positive"
             label="Satisfaction"
@@ -552,41 +552,43 @@ export function AdminPanel() {
           />
         </div>
 
-        <div className="border border-hairline rounded-none bg-surface overflow-hidden mb-3">
-          <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline bg-surface-2">
-            <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-ink-3">
-              <ThumbsDown size={15} className="text-critical" /> Réponses mal notées
-            </span>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+          <div className="border border-hairline rounded-none bg-surface overflow-hidden">
+            <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline bg-surface-2">
+              <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-ink-3">
+                <ThumbsDown size={15} className="text-critical" /> Réponses mal notées
+              </span>
+            </div>
+            <div className="px-3.5 py-3 space-y-2">
+              {negatives.length === 0 ? (
+                <p className="text-[12px] text-center py-4 text-ink-3">Aucune réponse notée 👎 pour l'instant.</p>
+              ) : negatives.map((b) => (
+                <div key={b.msg.id} className="rounded-none border-l-2 border-l-critical border border-hairline bg-surface-2 px-3 py-2 text-[12.5px]">
+                  <p className="text-ink">❓ {b.question}</p>
+                  <p className="mt-1 text-ink-3">💬 {b.msg.content.slice(0, 160)}{b.msg.content.length > 160 ? '…' : ''}</p>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="px-3.5 py-3 space-y-2">
-            {negatives.length === 0 ? (
-              <p className="text-[12px] text-center py-4 text-ink-3">Aucune réponse notée 👎 pour l'instant.</p>
-            ) : negatives.map((b) => (
-              <div key={b.msg.id} className="rounded-none border-l-2 border-l-critical border border-hairline bg-surface-2 px-3 py-2 text-[12.5px]">
-                <p className="text-ink">❓ {b.question}</p>
-                <p className="mt-1 text-ink-3">💬 {b.msg.content.slice(0, 160)}{b.msg.content.length > 160 ? '…' : ''}</p>
-              </div>
-            ))}
-          </div>
-        </div>
 
-        <div className="border border-hairline rounded-none bg-surface overflow-hidden">
-          <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline bg-surface-2">
-            <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-ink-3">
-              <HelpCircle size={15} className="text-watch" /> Questions sans contexte — docs à ajouter ?
-            </span>
-          </div>
-          <div className="px-3.5 py-3 space-y-2">
-            {noContext.length === 0 ? (
-              <p className="text-[12px] text-center py-4 text-ink-3">Aucune question restée sans contexte. 🎉</p>
-            ) : noContext.map((b) => (
-              <div key={b.msg.id} className="flex items-center justify-between gap-3 rounded-none border border-hairline bg-surface-2 px-3 py-2 text-[12.5px]">
-                <span className="text-ink truncate">❓ {b.question}</span>
-                <span className="font-num text-[10.5px] font-semibold px-1.5 py-0.5 rounded-none bg-watch-soft text-watch shrink-0">
-                  max {b.msg.rag_similarity != null ? b.msg.rag_similarity.toFixed(2) : '—'}
-                </span>
-              </div>
-            ))}
+          <div className="border border-hairline rounded-none bg-surface overflow-hidden">
+            <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-hairline bg-surface-2">
+              <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-ink-3">
+                <HelpCircle size={15} className="text-watch" /> Questions sans contexte — docs à ajouter ?
+              </span>
+            </div>
+            <div className="px-3.5 py-3 space-y-2">
+              {noContext.length === 0 ? (
+                <p className="text-[12px] text-center py-4 text-ink-3">Aucune question restée sans contexte. 🎉</p>
+              ) : noContext.map((b) => (
+                <div key={b.msg.id} className="flex items-center justify-between gap-3 rounded-none border border-hairline bg-surface-2 px-3 py-2 text-[12.5px]">
+                  <span className="text-ink truncate">❓ {b.question}</span>
+                  <span className="font-num text-[10.5px] font-semibold px-1.5 py-0.5 rounded-none bg-watch-soft text-watch shrink-0">
+                    max {b.msg.rag_similarity != null ? b.msg.rag_similarity.toFixed(2) : '—'}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -611,7 +613,7 @@ export function AdminPanel() {
       .sort((a, b) => b.usageScore - a.usageScore);
 
     return (
-      <div className="flex-1 overflow-y-auto p-5 max-w-[1180px] mx-auto animate-in fade-in duration-300">
+      <div className="flex-1 overflow-y-auto p-6 max-w-[1600px] mx-auto w-full animate-in fade-in duration-300">
         <div className="flex items-baseline gap-3">
           <h1 className="font-display text-base text-ink">Modération</h1>
           <span className="font-num text-[11.5px] text-ink-3">admin / moderation · garde-fou pédagogique</span>
@@ -1083,7 +1085,7 @@ const DocumentsView = () => {
   const totalChunks = docs.reduce((sum, d) => sum + d.chunks, 0);
 
   return (
-    <div className="flex-1 overflow-y-auto p-5 max-w-[1180px] mx-auto animate-in fade-in duration-300">
+    <div className="flex-1 overflow-y-auto p-6 max-w-[1600px] mx-auto w-full animate-in fade-in duration-300">
       <div className="flex items-baseline justify-between gap-3 flex-wrap">
         <div className="flex items-baseline gap-3">
           <h1 className="font-display text-base text-ink">Base de connaissances</h1>
