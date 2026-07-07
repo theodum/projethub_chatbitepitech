@@ -38,20 +38,15 @@ def get_supabase_client() -> Client:
 CURSUS_YEARS = 5  # durée du cursus Epitech (tek1..tek5)
 
 
-def promo_to_study_year(promo: int | None) -> int | None:
+def study_year_of(promo: int | None) -> int | None:
     """
-    Convertit l'année de sortie (promo, ex: 2029) en année d'étude (1..5).
-    tek = 5 - (promo - année_courante). Ex: promo 2029 en 2026 -> tek2.
-    Renvoie None si la promo est absente ou aberrante (=> l'utilisateur ne voit
-    alors que les documents SANS restriction de promo).
+    Le champ `promo` stocke directement l'année d'étude (1..5, tek1..tek5).
+    Renvoie l'année si valide, sinon None (l'utilisateur ne voit alors que les
+    documents SANS restriction de promo).
     """
-    if not promo:
+    if not promo or promo < 1 or promo > CURSUS_YEARS:
         return None
-    from datetime import date
-    year = 5 - (promo - date.today().year)
-    if year < 1 or year > CURSUS_YEARS:
-        return None
-    return year
+    return promo
 
 
 def retrieve_context(
@@ -74,7 +69,7 @@ def retrieve_context(
         return "", [], 0.0
 
     from datetime import date
-    user_year = promo_to_study_year(user_promo)
+    user_year = study_year_of(user_promo)
 
     try:
         response = get_supabase_client().rpc(

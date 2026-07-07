@@ -1260,6 +1260,15 @@ export function ChatInterface() {
                       className="mt-1.5 w-full bg-surface-2 border border-hairline rounded-[2px] px-3 py-2 text-sm text-ink-3 cursor-not-allowed font-mono"
                     />
                   </div>
+                  <div>
+                    <label className="font-mono text-[10px] uppercase tracking-wider text-ink-3">Année d'étude</label>
+                    <input
+                      type="text"
+                      value={userPromo && userPromo >= 1 && userPromo <= 5 ? `tek${userPromo}` : 'Non renseignée'}
+                      readOnly
+                      className="mt-1.5 w-full bg-surface-2 border border-hairline rounded-[2px] px-3 py-2 text-sm text-ink-3 cursor-not-allowed font-mono"
+                    />
+                  </div>
                   <div className="flex items-center gap-2 py-1">
                     <span className="font-mono text-[10px] uppercase tracking-wider text-ink-3">Temps de session</span>
                     <span className="ml-auto font-num text-sm text-ink tnum">{formatDuration(sessionSeconds)}</span>

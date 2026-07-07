@@ -24,7 +24,7 @@ from typing import Optional, List
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from api.moderation import resolve_token, get_supabase_client
-from api.routes import retrieve_context, promo_to_study_year
+from api.routes import retrieve_context
 from services.googleai_service import GoogleAIService
 from services.moderation_service import is_bypass_attempt
 from models.chat_models import ChatRequest  # pour le system_prompt par défaut

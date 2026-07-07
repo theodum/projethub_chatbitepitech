@@ -8,26 +8,27 @@ interface PromoSetupProps {
 }
 
 export function PromoSetup({ user, onComplete }: PromoSetupProps) {
-  const [promo, setPromo] = useState('');
+  const [year, setYear] = useState('');   // '1'..'5'
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmed = promo.trim();
-    if (!/^20\d{2}$/.test(trimmed)) {
-      setError('Format invalide. Exemple : 2029');
+    const n = Number(year);
+    if (!year || n < 1 || n > 5) {
+      setError('Sélectionne ton année (tek1 à tek5).');
       return;
     }
 
     setLoading(true);
     setError(null);
     try {
-      await updateUser(user.id, { promo: Number(trimmed) });
+      // Le champ `promo` stocke désormais l'année d'étude (1..5).
+      await updateUser(user.id, { promo: n });
       onComplete();
     } catch (err) {
       console.error('Erreur lors de la mise à jour du profil:', err);
-      setError("Impossible d'enregistrer la promo. Réessaie.");
+      setError("Impossible d'enregistrer ton année. Réessaie.");
     } finally {
       setLoading(false);
     }
@@ -42,27 +43,24 @@ export function PromoSetup({ user, onComplete }: PromoSetupProps) {
           </p>
           <h1 className="font-display text-xl font-semibold text-ink">Bienvenue</h1>
           <p className="text-sm text-ink-2 mt-1">
-            Renseigne ton numéro de promo pour continuer.
+            Sélectionne ton année d'étude pour continuer.
           </p>
         </div>
         <form onSubmit={handleSubmit} className="px-6 py-5 flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <label className="font-mono text-[11px] uppercase tracking-wider text-ink-3">
-              Promo
+              Année d'étude
             </label>
-            <input
-              type="text"
-              inputMode="numeric"
-              placeholder="Ex: 2029"
-              value={promo}
-              maxLength={4}
-              onChange={(e) => {
-                const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 4);
-                setPromo(digitsOnly);
-                if (error) setError(null);
-              }}
-              className="w-full bg-surface-2 border border-hairline rounded-none px-3 py-2 text-ink placeholder:text-ink-3 outline-none focus:border-accent"
-            />
+            <select
+              value={year}
+              onChange={(e) => { setYear(e.target.value); if (error) setError(null); }}
+              className="w-full bg-surface-2 border border-hairline rounded-none px-3 py-2 text-ink outline-none focus:border-accent font-mono"
+            >
+              <option value="">— Choisir —</option>
+              {[1, 2, 3, 4, 5].map((y) => (
+                <option key={y} value={y}>tek{y}</option>
+              ))}
+            </select>
           </div>
           {error && (
             <div className="border border-hairline bg-critical-soft text-critical rounded-none px-3 py-2 text-sm">

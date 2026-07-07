@@ -54,6 +54,10 @@ interface TrendData {
   trend: 'up' | 'down' | 'stable';
 }
 
+// Le champ `promo` stocke l'année d'étude (1..5) -> libellé "tekN".
+const tekLabel = (promo: number | null | undefined): string =>
+  promo && promo >= 1 && promo <= 5 ? `tek${promo}` : 'Année inconnue';
+
 type UsageStatus = 'modere' | 'moyenne' | 'critique' | 'abusive';
 
 const getUsageStatus = (score: number): { label: string; color: string; darkColor: string; icon: React.ReactNode; status: UsageStatus } => {
@@ -298,7 +302,7 @@ export function AdminPanel() {
                 <span className="font-num text-[10.5px] font-semibold px-1.5 py-0.5 rounded-none bg-watch-soft text-watch">USAGE</span>
                 <div className="flex-1 min-w-0">
                   <div className="truncate text-ink">{u.dailyMessageCount} messages aujourd'hui — surveiller</div>
-                  <div className="font-num text-[11px] text-ink-3">{u.email} · promo {u.promo ?? '—'}</div>
+                  <div className="font-num text-[11px] text-ink-3">{u.email} · {tekLabel(u.promo)}</div>
                 </div>
                 <div className="w-[70px] h-1.5 rounded-none bg-surface-2 overflow-hidden">
                   <span className="block h-full bg-watch" style={{ width: `${u.usageScore}%` }} />
@@ -369,7 +373,7 @@ export function AdminPanel() {
     const maxActivity = Math.max(1, ...perDay);
 
     const promoStats = users.reduce((acc, user) => {
-      const label = user.promo ? `Promo ${user.promo}` : 'Autre';
+      const label = user.promo ? tekLabel(user.promo) : 'Autre';
       acc[label] = (acc[label] || 0) + user.messageCount;
       return acc;
     }, {} as { [key: string]: number });
@@ -721,7 +725,7 @@ export function AdminPanel() {
                 <div key={u.id} className="flex items-center justify-between gap-3 rounded-none border border-hairline bg-surface-2 px-3 py-2 text-[12.5px]">
                   <div className="min-w-0">
                     <p className="font-medium truncate text-ink">{u.name || u.email}</p>
-                    <p className="font-num text-[11px] text-ink-3">{u.promo ? `Promo ${u.promo}` : 'Promo inconnue'} · {u.dailyMessageCount} msg aujourd'hui</p>
+                    <p className="font-num text-[11px] text-ink-3">{tekLabel(u.promo)} · {u.dailyMessageCount} msg aujourd'hui</p>
                   </div>
                   <div className={`flex items-center gap-1.5 px-2 py-1 rounded-none border text-[11px] font-bold ${status.color} ${status.darkColor} shrink-0`}>
                     {status.icon}
@@ -817,7 +821,7 @@ export function AdminPanel() {
               />
             </div>
             <div className="flex items-center gap-2">
-              <span className="font-mono text-[10px] uppercase tracking-wider text-ink-3 shrink-0">Promo</span>
+              <span className="font-mono text-[10px] uppercase tracking-wider text-ink-3 shrink-0">Année</span>
               <select
                 value={promoFilter}
                 onChange={(e) => setPromoFilter(e.target.value)}
@@ -826,11 +830,11 @@ export function AdminPanel() {
                 <option value="all">Toutes ({users.length})</option>
                 {availablePromos.map(p => (
                   <option key={p} value={String(p)}>
-                    {p} ({users.filter(u => u.promo === p).length})
+                    tek{p} ({users.filter(u => u.promo === p).length})
                   </option>
                 ))}
                 {users.some(u => u.promo == null) && (
-                  <option value="none">Sans promo ({users.filter(u => u.promo == null).length})</option>
+                  <option value="none">Sans année ({users.filter(u => u.promo == null).length})</option>
                 )}
               </select>
             </div>
@@ -863,7 +867,7 @@ export function AdminPanel() {
                       {user.name || user.email}
                     </h3>
                     <p className="text-[11px] truncate text-ink-3">
-                      {user.promo ? `Promo ${user.promo}` : 'Promo inconnue'}
+                      {tekLabel(user.promo)}
                     </p>
                   </div>
                   <div className={`font-num text-[10.5px] font-semibold px-1.5 py-0.5 rounded-none ${
@@ -886,7 +890,7 @@ export function AdminPanel() {
               <div>
                 <h2 className="font-display text-base text-ink">{selectedUser.name || selectedUser.email}</h2>
                 <div className="flex items-center gap-2 font-num text-[11.5px] text-ink-3">
-                  <span>{selectedUser.promo ? `Promo ${selectedUser.promo}` : 'Promo inconnue'}</span> · <span>{selectedUser.email}</span>
+                  <span>{tekLabel(selectedUser.promo)}</span> · <span>{selectedUser.email}</span>
                 </div>
               </div>
             </div>
