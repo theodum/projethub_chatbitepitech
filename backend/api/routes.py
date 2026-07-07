@@ -49,6 +49,27 @@ def study_year_of(promo: int | None) -> int | None:
     return promo
 
 
+NO_CONTEXT_NOTICE = (
+    "\n\n### Contexte pertinent (base de connaissances) :\n"
+    "AUCUN document de la base ne correspond à cette question. "
+    "Si l'étudiant demande le contenu d'un projet/sujet Epitech précis, c'est qu'il "
+    "n'est pas dans ta base OU qu'il n'est pas accessible pour son année d'étude ou "
+    "sa date de démarrage. Applique alors la RÈGLE STRICTE du périmètre de connaissance : "
+    "n'invente rien, ne le décris pas, et indique-lui que ce sujet ne t'est pas accessible. "
+    "Tu peux en revanche répondre à une question de notion générale."
+)
+
+
+def build_system_prompt(base_prompt: str, injected_content: str) -> str:
+    """Assemble le system prompt : contexte RAG s'il existe, sinon notice anti-hallucination."""
+    prompt = base_prompt or ""
+    if injected_content.strip():
+        prompt += "\n\n### Contexte pertinent (base de connaissances) :\n" + injected_content
+    else:
+        prompt += NO_CONTEXT_NOTICE
+    return prompt
+
+
 def retrieve_context(
     question: str,
     match_count: int = 5,
@@ -121,13 +142,8 @@ async def chat(request: ChatRequest):
         # Récupérer le contexte pertinent par recherche sémantique
         injected_content, sources, max_similarity = retrieve_context(request.message, user_promo=request.user_promo)
 
-        # Injecter dans le system prompt
-        system_prompt = request.system_prompt or ""
-        if injected_content.strip():
-            system_prompt += (
-                "\n\n### Contexte pertinent (base de connaissances) :\n"
-                f"{injected_content}"
-            )
+        # Injecter dans le system prompt (+ notice anti-hallucination si vide)
+        system_prompt = build_system_prompt(request.system_prompt, injected_content)
 
         conversation_history = None
         if request.conversation_history:
@@ -175,14 +191,11 @@ async def chat_stream(request: ChatRequest):
     Ligne 1 = métadonnées (sources, similarité, contexte, flag modération),
     puis des lignes 'delta' avec le texte au fur et à mesure, puis 'done'.
     """
-    injected_content, sources, max_similarity = retrieve_context(request.message)
+    injected_content, sources, max_similarity = retrieve_context(
+        request.message, user_promo=request.user_promo
+    )
 
-    system_prompt = request.system_prompt or ""
-    if injected_content.strip():
-        system_prompt += (
-            "\n\n### Contexte pertinent (base de connaissances) :\n"
-            f"{injected_content}"
-        )
+    system_prompt = build_system_prompt(request.system_prompt, injected_content)
 
     conversation_history = None
     if request.conversation_history:

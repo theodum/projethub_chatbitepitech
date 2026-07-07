@@ -24,7 +24,7 @@ from typing import Optional, List
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from api.moderation import resolve_token, get_supabase_client
-from api.routes import retrieve_context
+from api.routes import retrieve_context, build_system_prompt
 from services.googleai_service import GoogleAIService
 from services.moderation_service import is_bypass_attempt
 from models.chat_models import ChatRequest  # pour le system_prompt par défaut
@@ -149,9 +149,7 @@ async def ext_chat_stream(payload: ExtChatRequest, authorization: str = Header(N
     injected, sources, max_sim = retrieve_context(payload.message, user_promo=user.get("promo"))
     context_found = bool(injected.strip())
 
-    system_prompt = DEFAULT_SYSTEM_PROMPT
-    if context_found:
-        system_prompt += "\n\n### Contexte pertinent (base de connaissances) :\n" + injected
+    system_prompt = build_system_prompt(DEFAULT_SYSTEM_PROMPT, injected)
 
     history = None
     if payload.conversation_history:
